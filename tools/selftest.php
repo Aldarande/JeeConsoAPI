@@ -202,6 +202,70 @@ $m3->saveState();
 check('compteur manuel remis à zéro au changement de jour',
       jeeconsoapi::byId($id)->consumeManualQuota() === null);
 
+echo "\n=== 12. Rendu du widget (toHtml) ===\n";
+
+/* eqLogic::preToHtml() renvoie '' si hasRight('r') est faux, or hasRight()
+   renvoie false dès que !isConnect() — toujours le cas en CLI. Sans session
+   simulée, le rendu serait vide pour une raison étrangère au widget. */
+@session_start();
+$admin = null;
+foreach (user::all() as $u) {
+    if ($u->getProfils() === 'admin' && $u->getEnable() == 1) { $admin = $u; break; }
+}
+if (!is_object($admin)) {
+    echo "  SKIP  aucun utilisateur admin actif — rendu non testable\n";
+} else {
+    $_SESSION['user'] = $admin;
+
+    $w = new jeeconsoapi();
+    $w->setName('__selftest_widget_jeeconsoapi');
+    $w->setEqType_name('jeeconsoapi');
+    $w->setIsEnable(1);
+    $w->setIsVisible(1);
+    $w->setConfiguration('prm', '12345678901234');
+    $w->setConfiguration('token', $tok);
+    $w->save();
+    $wid = $w->getId();
+
+    $w = jeeconsoapi::byId($wid);
+    $stamp = date('Y-m-d', strtotime('-1 day')) . ' 23:59:00';
+    $w->checkAndUpdateCmd('daily_consumption', 12.47, $stamp);
+    $w->checkAndUpdateCmd('max_power', 4638, $stamp);
+    $w->checkAndUpdateCmd('data_date', date('Y-m-d', strtotime('-1 day')));
+
+    foreach (array('dashboard', 'mobile') as $version) {
+        $html = jeeconsoapi::byId($wid)->toHtml($version);
+
+        check("[$version] rendu non vide", strlen($html) > 500, strlen($html) . ' octets');
+
+        preg_match_all('/#[a-zA-Z_][a-zA-Z0-9_]*#/', $html, $m);
+        $left = array_unique($m[0]);
+        check("[$version] aucun placeholder résiduel", count($left) === 0, implode(', ', $left));
+
+        // Les {{…}} ne sont PAS traduits sur le chemin toHtml() d'un eqLogic :
+        // en laisser afficherait les accolades telles quelles à l'écran.
+        check("[$version] aucun {{…}} non traduit", !preg_match('/\{\{[^}]+\}\}/', $html));
+
+        check("[$version] valeur de consommation injectée", strpos($html, '12.47') !== false);
+        check("[$version] valeur de puissance injectée",    strpos($html, '4638')  !== false);
+
+        // Câblage du graphique d'historique natif
+        check("[$version] data-cmd_id présents", preg_match_all('/data-cmd_id="\d+"/', $html) >= 2);
+        check("[$version] classe history présente", strpos($html, 'history') !== false);
+        check("[$version] racine eqLogic + eqLogic-widget (Ctrl+clic)",
+              preg_match('/class="[^"]*\beqLogic\b[^"]*\beqLogic-widget\b/', $html) === 1);
+
+        // Contrôle anti-fuite dans le HTML servi au navigateur
+        check("[$version] aucune fuite du token",
+              stripos($html, $tok) === false && stripos($html, 'crypt:') === false);
+        check("[$version] aucune fuite du PRM complet",
+              strpos($html, '12345678901234') === false);
+    }
+
+    jeeconsoapi::byId($wid)->remove();
+    check('équipement de widget supprimé', !is_object(jeeconsoapi::byId($wid)));
+}
+
 echo "\n=== Nettoyage ===\n";
 jeeconsoapi::byId($id)->remove();
 check('équipement de test supprimé', !is_object(jeeconsoapi::byId($id)));

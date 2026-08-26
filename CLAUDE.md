@@ -249,7 +249,7 @@ argument fait atterrir le point d'historique au bon jour, et non à l'heure de c
 # 1. Lint (le bind mount rend la copie inutile)
 docker exec jeedom-dev php -l /var/www/html/plugins/jeeconsoapi/core/class/jeeconsoapi.class.php
 
-# 2. Auto-test de non-régression — 45 vérifications, AUCUN appel réseau
+# 2. Auto-test de non-régression — 66 vérifications, AUCUN appel réseau
 docker exec jeedom-dev php /var/www/html/plugins/jeeconsoapi/tools/selftest.php
 
 # 3. Forcer un cycle complet sans attendre 6h du matin

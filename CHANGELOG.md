@@ -42,10 +42,12 @@ Première version publiée. Périmètre « consommation seule ».
   compteurs sont affichés dans l'encart de planification.
 - **Configuration globale** du plugin : bornes de la fenêtre matinale, heure du nouvel essai
   de l'après-midi, plafond d'appels automatiques quotidiens.
-- **Auto-test de non-régression** (`tools/selftest.php`, 45 vérifications, sans aucun appel
+- **Auto-test de non-régression** (`tools/selftest.php`, 66 vérifications, sans aucun appel
   réseau) : parsing des deux formes de réponse possibles, conversion d'unités, masquage des
   secrets, aller-retour de chiffrement, cycle de vie de l'équipement, respect des deux
-  plafonds. Exécutable en CLI uniquement, inaccessible par HTTP.
+  plafonds, et rendu des widgets desktop et mobile (placeholders résolus, câblage du
+  graphique d'historique, absence de fuite de secret dans le HTML servi).
+  Exécutable en CLI uniquement, inaccessible par HTTP.
 - **Widget dashboard et mobile** affichant la consommation de la veille, la puissance
   maximale et la date des données, avec accès au graphique d'historique natif de Jeedom.
 - **User-Agent identifiable** sur chaque requête, conformément aux règles d'usage de
