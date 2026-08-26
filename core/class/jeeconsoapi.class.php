@@ -468,7 +468,7 @@ class jeeconsoapi extends eqLogic {
 
         if (count($data['points']) === 0) {
             // Données J-1 pas encore publiées par Enedis : c'est un cas NORMAL le matin.
-            return $this->rescheduleAfterEmpty($_ctx, $_force);
+            return $this->rescheduleAfterEmpty($_ctx);
         }
 
         $last  = end($data['points']);
@@ -578,7 +578,7 @@ class jeeconsoapi extends eqLogic {
     /* ---------------------------------------------------------------
        200 mais aucun point : les données J-1 ne sont pas encore publiées
     --------------------------------------------------------------- */
-    public function rescheduleAfterEmpty($_ctx, $_force = false) {
+    public function rescheduleAfterEmpty($_ctx) {
         $hour       = (int) date('G');
         $morningEnd = jeeconsoapi_cfg('morning_end', 10, 1, 23);
         $afternoon  = jeeconsoapi_cfg('afternoon_retry', 14, 10, 23);
