@@ -1,0 +1,263 @@
+<!-- Widget jeeconsoapi — Dashboard — Aldarande — AGPL v3 -->
+<!-- La classe `eqLogic` (en plus de `eqLogic-widget`) est requise par le core pour le
+     Ctrl+clic qui superpose toutes les courbes de l'équipement sur un même graphique :
+     desktop/common/js/ui.js l.268 teste `div.eqLogic.eqLogic-widget`. C'est aussi ce
+     qu'écrit le core lui-même (core/class/eqLogic.class.php l.642). -->
+<div class="eqLogic eqLogic-widget jca" id="jca-#eqLogic_id#" data-eqlogic_id="#eqLogic_id#" data-version="#version#" data-eqtype="jeeconsoapi">
+<style>
+/* ── Tout est scopé sous .jca : aucune règle ne fuit hors du widget ───────── */
+.jca{
+  /* Palette de marque (locale) */
+  --jca-a1:#10b981;              /* vert Linky/énergie */
+  --jca-a2:#06b6d4;              /* cyan électrique    */
+  --jca-pw:#f59e0b;              /* ambre puissance    */
+  /* Couleurs héritées du thème Jeedom (clair ET sombre).
+     --contrast-color et --eq-bg-color sont des TRIPLETS RGB : d'où rgb()/rgba().
+     Astuce thème : --contrast-color vaut 205,205,205 en Dark et 30,30,30 en Light,
+     donc rgba(var(--contrast-color),.06) donne un voile clair sur fond sombre
+     et un voile sombre sur fond clair — sans media query ni sélecteur de thème. */
+  --jca-fg:rgb(var(--contrast-color,30,30,30));
+  --jca-mute:var(--txt-color,rgb(120,120,120));
+  --jca-line:rgba(var(--contrast-color,30,30,30),.13);
+  --jca-veil:rgba(var(--contrast-color,30,30,30),.05);
+  --jca-veil2:rgba(var(--contrast-color,30,30,30),.10);
+  --jca-card:rgba(var(--eq-bg-color,249,249,250),.88);
+  --jca-r:16px;
+  --jca-tr:.18s ease;
+
+  display:block;
+  width:100%;
+  min-width:180px;
+  max-width:100%;
+  text-align:left;
+  line-height:1.35;
+  color:var(--jca-fg);
+}
+.jca *,.jca *::before,.jca *::after{box-sizing:border-box;}
+
+/* ── Carte ───────────────────────────────────────────────────────────────── */
+.jca .jca-card{
+  position:relative;
+  overflow:hidden;
+  padding:10px 12px 9px;
+  border-radius:var(--jca-r);
+  border:1px solid var(--jca-line);
+  background:
+    linear-gradient(150deg,rgba(16,185,129,.14),rgba(6,182,212,.06) 42%,rgba(0,0,0,0) 72%),
+    var(--jca-card);
+  box-shadow:
+    0 1px 1px rgba(0,0,0,.05),
+    0 6px 18px rgba(0,0,0,.10),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+/* halo décoratif (transform/opacity only, aucun reflow) */
+.jca .jca-card::after{
+  content:'';position:absolute;top:-72px;right:-58px;
+  width:150px;height:150px;border-radius:50%;
+  background:radial-gradient(circle,var(--jca-a2),rgba(0,0,0,0) 68%);
+  opacity:.14;pointer-events:none;
+}
+.jca .jca-card>*{position:relative;z-index:1;}
+
+/* ── En-tête ─────────────────────────────────────────────────────────────── */
+.jca .jca-head{
+  display:flex;align-items:center;gap:8px;
+  padding-bottom:8px;border-bottom:1px solid var(--jca-line);
+}
+.jca .jca-ico{
+  flex:0 0 auto;width:28px;height:28px;border-radius:9px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.86em;color:#fff;
+  background:linear-gradient(135deg,var(--jca-a1),var(--jca-a2));
+  box-shadow:0 2px 6px rgba(6,182,212,.32);
+}
+.jca .jca-head-txt{flex:1;min-width:0;}
+.jca .jca-name{
+  font-size:.94em;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.jca .jca-brand{
+  margin-top:1px;font-size:.62em;font-weight:600;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--jca-mute);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* ── Bloc principal : consommation ───────────────────────────────────────── */
+.jca .jca-hero{
+  margin-top:10px;padding:8px 10px 9px;
+  border-radius:12px;
+  background:var(--jca-veil);
+  border:1px solid transparent;
+  transition:background var(--jca-tr),border-color var(--jca-tr),transform var(--jca-tr);
+}
+.jca .jca-label{
+  font-size:.63em;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--jca-mute);
+}
+.jca .jca-val{display:flex;align-items:baseline;gap:5px;margin-top:2px;flex-wrap:wrap;}
+.jca .jca-num{
+  font-size:2.3em;font-weight:800;line-height:1.05;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;
+  color:var(--jca-fg);
+}
+/* dégradé de marque sur le chiffre, avec repli si background-clip:text absent */
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .jca .jca-num{
+    background-image:linear-gradient(135deg,var(--jca-a1),var(--jca-a2));
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;color:transparent;
+  }
+}
+.jca .jca-unit{font-size:.88em;font-weight:700;color:var(--jca-mute);}
+.jca .jca-hint{
+  display:flex;align-items:center;gap:4px;
+  margin-top:5px;font-size:.6em;color:var(--jca-mute);opacity:.75;
+  transition:color var(--jca-tr),opacity var(--jca-tr);
+}
+
+/* ── Bloc secondaire : puissance max ─────────────────────────────────────── */
+.jca .jca-tile{
+  margin-top:8px;padding:7px 9px;
+  display:flex;align-items:center;gap:8px;
+  border-radius:11px;
+  background:var(--jca-veil);
+  border:1px solid transparent;
+  transition:background var(--jca-tr),border-color var(--jca-tr);
+}
+.jca .jca-tile-ico{
+  flex:0 0 auto;width:24px;height:24px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.78em;color:var(--jca-pw);background:rgba(245,158,11,.16);
+}
+.jca .jca-tile-body{flex:1;min-width:0;}
+.jca .jca-tile-val{
+  margin-top:1px;font-size:1.05em;font-weight:800;
+  font-variant-numeric:tabular-nums;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.jca .jca-unit-sm{font-size:.68em;font-weight:600;color:var(--jca-mute);margin-left:2px;}
+.jca .jca-chev{
+  flex:0 0 auto;font-size:.72em;color:var(--jca-mute);opacity:.5;
+  transition:color var(--jca-tr),opacity var(--jca-tr);
+}
+
+/* ── Pied : date des données (tertiaire) ─────────────────────────────────── */
+.jca .jca-foot{
+  margin-top:9px;padding-top:7px;
+  display:flex;align-items:center;gap:6px;flex-wrap:nowrap;
+  border-top:1px solid var(--jca-line);
+  font-size:.63em;color:var(--jca-mute);
+}
+.jca .jca-foot>i{flex:0 0 auto;opacity:.7;}
+.jca .jca-foot-txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.jca .jca-date{font-weight:700;color:var(--jca-fg);opacity:.85;font-variant-numeric:tabular-nums;}
+.jca .jca-tag{
+  flex:0 0 auto;padding:1px 6px;border-radius:999px;
+  font-weight:700;letter-spacing:.05em;
+  background:rgba(var(--contrast-color,30,30,30),.08);
+  border:1px solid var(--jca-line);
+}
+
+/* ── Zones cliquables (graphique d'historique natif Jeedom) ──────────────── */
+.jca .history{cursor:pointer;}
+.jca .jca-hero.history:hover{
+  background:var(--jca-veil2);
+  border-color:rgba(16,185,129,.45);
+  transform:translateY(-1px);
+}
+.jca .jca-hero.history:hover .jca-hint{opacity:1;color:var(--jca-a1);}
+.jca .jca-tile.history:hover{background:var(--jca-veil2);border-color:rgba(245,158,11,.45);}
+.jca .jca-tile.history:hover .jca-chev{opacity:1;color:var(--jca-pw);}
+/* pas d'historique disponible : on retire l'affordance */
+.jca .jca-hero:not(.history) .jca-hint,
+.jca .jca-tile:not(.history) .jca-chev{display:none;}
+
+/* ── État vide (pas encore de relevé) ────────────────────────────────────── */
+.jca.jca-empty .jca-num{
+  background-image:none;
+  -webkit-text-fill-color:currentColor;
+  color:var(--jca-mute);
+  opacity:.6;
+}
+.jca.jca-empty .jca-unit{opacity:.55;}
+.jca .jca-na{color:var(--jca-mute);opacity:.6;}
+
+@media (prefers-reduced-motion:reduce){
+  .jca .jca-hero,.jca .jca-tile,.jca .jca-hint,.jca .jca-chev{transition:none;}
+  .jca .jca-hero.history:hover{transform:none;}
+}
+</style>
+
+  <div class="jca-card">
+
+    <div class="jca-head">
+      <div class="jca-ico"><i class="fas fa-bolt"></i></div>
+      <div class="jca-head-txt">
+        <div class="jca-name" title="#eqLogic_name#">#name_display#</div>
+        <div class="jca-brand">Compteur Linky &middot; relevé quotidien</div>
+      </div>
+    </div>
+
+    <!-- Information principale : consommation de la veille.
+         class="cmd history" + data-cmd_id => ouvre le graphique d'historique Jeedom -->
+    <div class="jca-hero cmd history cursor"
+         data-type="info"
+         data-cmd_id="#consumption_id#"
+         data-cmd_uid="#uid#"
+         title="Consommation de la veille — cliquer pour afficher l'historique">
+      <div class="jca-label">Consommation de la veille</div>
+      <div class="jca-val">
+        <span class="jca-num">#consumption#</span>
+        <span class="jca-unit">kWh</span>
+      </div>
+      <div class="jca-hint"><i class="fas fa-chart-area"></i> Voir l'historique</div>
+    </div>
+
+    <!-- Information secondaire : puissance maximale de la journée -->
+    <div class="jca-tile cmd history cursor"
+         data-type="info"
+         data-cmd_id="#max_power_id#"
+         data-cmd_uid="#uid#"
+         title="Puissance maximale atteinte ce jour-là — cliquer pour afficher l'historique">
+      <div class="jca-tile-ico"><i class="fas fa-tachometer-alt"></i></div>
+      <div class="jca-tile-body">
+        <div class="jca-label">Puissance max</div>
+        <div class="jca-tile-val jca-pw-val">#max_power#<span class="jca-unit-sm">VA</span></div>
+      </div>
+      <i class="fas fa-chart-bar jca-chev"></i>
+    </div>
+
+    <!-- Information tertiaire : journée concernée (toujours la veille) -->
+    <div class="jca-foot">
+      <i class="far fa-calendar-alt"></i>
+      <span class="jca-foot-txt">Journée mesurée : <b class="jca-date">#data_date#</b></span>
+      <span class="jca-tag" title="Une seule mesure par jour, portant sur la journée d'hier">J-1</span>
+    </div>
+
+  </div>
+
+<script>
+/* Progressive enhancement uniquement : le widget reste correct si ce script
+   n'est pas exécuté (injection innerHTML sans évaluation de <script>). */
+(function(){
+  try{
+    var r=document.getElementById('jca-#eqLogic_id#');
+    if(!r||r.getAttribute('data-jca-init')==='1'){return;}
+    r.setAttribute('data-jca-init','1');
+    /* Pas d'id de commande => pas de graphique : on enlève l'affordance de clic */
+    Array.prototype.forEach.call(r.querySelectorAll('.history'),function(el){
+      if(!el.getAttribute('data-cmd_id')){
+        el.classList.remove('history');
+        el.classList.remove('cursor');
+        el.removeAttribute('title');
+      }
+    });
+    /* État vide : aucune donnée remontée pour l'instant */
+    var v=r.querySelector('.jca-num');
+    if(v&&v.textContent.replace(/\s/g,'')==='--'){r.classList.add('jca-empty');}
+    var p=r.querySelector('.jca-pw-val');
+    if(p&&p.textContent.replace(/\s/g,'').indexOf('--')===0){p.classList.add('jca-na');}
+  }catch(e){}
+})();
+</script>
+</div>

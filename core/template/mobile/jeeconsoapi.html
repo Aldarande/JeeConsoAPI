@@ -1,0 +1,188 @@
+<!-- Widget jeeconsoapi — Mobile — Aldarande — AGPL v3 -->
+<div class="eqLogic eqLogic-widget jca jca-m" id="jcam-#eqLogic_id#" data-eqlogic_id="#eqLogic_id#" data-version="#version#" data-eqtype="jeeconsoapi">
+<style>
+/* Tout est scopé sous .jca-m : aucune règle ne fuit hors du widget. */
+.jca-m{
+  --jca-a1:#10b981;
+  --jca-a2:#06b6d4;
+  --jca-pw:#f59e0b;
+  /* --contrast-color / --eq-bg-color sont des TRIPLETS RGB côté thème Jeedom
+     (mobile/colors.css, Light comme Dark) : d'où rgb()/rgba() + repli. */
+  --jca-fg:rgb(var(--contrast-color,30,30,30));
+  --jca-mute:var(--txt-color,rgb(120,120,120));
+  --jca-line:rgba(var(--contrast-color,30,30,30),.13);
+  --jca-veil:rgba(var(--contrast-color,30,30,30),.05);
+  --jca-veil2:rgba(var(--contrast-color,30,30,30),.10);
+  --jca-card:rgba(var(--eq-bg-color,249,249,250),.90);
+  --jca-tr:.18s ease;
+
+  display:block;
+  width:100%;
+  min-width:150px;
+  max-width:100%;
+  text-align:left;
+  line-height:1.3;
+  color:var(--jca-fg);
+}
+.jca-m *,.jca-m *::before,.jca-m *::after{box-sizing:border-box;}
+
+.jca-m .jca-m-card{
+  position:relative;overflow:hidden;
+  padding:8px 10px;
+  border-radius:13px;
+  border:1px solid var(--jca-line);
+  background:
+    linear-gradient(140deg,rgba(16,185,129,.14),rgba(6,182,212,.05) 48%,rgba(0,0,0,0) 78%),
+    var(--jca-card);
+  box-shadow:0 1px 1px rgba(0,0,0,.05),0 4px 12px rgba(0,0,0,.10);
+}
+
+/* En-tête compact */
+.jca-m .jca-m-head{display:flex;align-items:center;gap:6px;min-width:0;}
+.jca-m .jca-m-ico{
+  flex:0 0 auto;width:20px;height:20px;border-radius:7px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.7em;color:#fff;
+  background:linear-gradient(135deg,var(--jca-a1),var(--jca-a2));
+}
+.jca-m .jca-m-name{
+  flex:1;min-width:0;font-size:.82em;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* Ligne de données : conso (principal) + puissance max (secondaire) */
+.jca-m .jca-m-row{display:flex;align-items:stretch;gap:6px;margin-top:7px;}
+.jca-m .jca-m-box{
+  padding:6px 8px;border-radius:10px;min-width:0;
+  background:var(--jca-veil);border:1px solid transparent;
+  transition:background var(--jca-tr),border-color var(--jca-tr);
+}
+.jca-m .jca-m-main{flex:1 1 auto;}
+.jca-m .jca-m-side{flex:0 0 auto;max-width:44%;}
+.jca-m .jca-m-lbl{
+  font-size:.56em;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--jca-mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.jca-m .jca-m-v{
+  display:flex;align-items:baseline;gap:3px;margin-top:1px;
+  white-space:nowrap;overflow:hidden;
+}
+.jca-m .jca-m-num{
+  font-size:1.62em;font-weight:800;line-height:1.1;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums;color:var(--jca-fg);
+}
+@supports ((-webkit-background-clip:text) or (background-clip:text)){
+  .jca-m .jca-m-num{
+    background-image:linear-gradient(135deg,var(--jca-a1),var(--jca-a2));
+    -webkit-background-clip:text;background-clip:text;
+    -webkit-text-fill-color:transparent;color:transparent;
+  }
+}
+.jca-m .jca-m-num-sm{
+  font-size:1.02em;font-weight:800;line-height:1.15;
+  font-variant-numeric:tabular-nums;color:var(--jca-pw);
+}
+.jca-m .jca-m-u{font-size:.68em;font-weight:700;color:var(--jca-mute);}
+
+/* Pied : journée concernée (toujours la veille) */
+.jca-m .jca-m-foot{
+  display:flex;align-items:center;gap:5px;flex-wrap:nowrap;
+  margin-top:7px;padding-top:6px;
+  border-top:1px solid var(--jca-line);
+  font-size:.58em;color:var(--jca-mute);
+}
+.jca-m .jca-m-foot>i{flex:0 0 auto;opacity:.7;}
+.jca-m .jca-m-foot-txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.jca-m .jca-m-date{font-weight:700;color:var(--jca-fg);opacity:.85;font-variant-numeric:tabular-nums;}
+.jca-m .jca-m-tag{
+  flex:0 0 auto;padding:1px 5px;border-radius:999px;font-weight:700;
+  background:rgba(var(--contrast-color,30,30,30),.08);
+  border:1px solid var(--jca-line);
+}
+
+/* Zones cliquables : graphique d'historique natif */
+.jca-m .history{cursor:pointer;}
+.jca-m .jca-m-main.history:active{background:var(--jca-veil2);border-color:rgba(16,185,129,.45);}
+.jca-m .jca-m-side.history:active{background:var(--jca-veil2);border-color:rgba(245,158,11,.45);}
+
+/* État vide (pas encore de relevé) */
+.jca-m.jca-empty .jca-m-num{
+  background-image:none;-webkit-text-fill-color:currentColor;
+  color:var(--jca-mute);opacity:.6;
+}
+.jca-m.jca-empty .jca-m-u{opacity:.55;}
+.jca-m .jca-na{color:var(--jca-mute);opacity:.6;}
+
+@media (prefers-reduced-motion:reduce){
+  .jca-m .jca-m-box{transition:none;}
+}
+</style>
+
+  <div class="jca-m-card">
+
+    <div class="jca-m-head">
+      <span class="jca-m-ico"><i class="fas fa-bolt"></i></span>
+      <span class="jca-m-name" title="#eqLogic_name#">#name_display#</span>
+    </div>
+
+    <div class="jca-m-row">
+
+      <!-- Principal : conso de la veille. Sur mobile le handler écoute
+           '.cmd[data-type=info]' et lit data('cmd_id') -> classes cmd history. -->
+      <div class="jca-m-box jca-m-main cmd history"
+           data-type="info"
+           data-cmd_id="#consumption_id#"
+           data-cmd_uid="#uid#"
+           title="Consommation de la veille — historique">
+        <div class="jca-m-lbl">Conso veille</div>
+        <div class="jca-m-v">
+          <span class="jca-m-num">#consumption#</span>
+          <span class="jca-m-u">kWh</span>
+        </div>
+      </div>
+
+      <!-- Secondaire : puissance max de la journée -->
+      <div class="jca-m-box jca-m-side cmd history"
+           data-type="info"
+           data-cmd_id="#max_power_id#"
+           data-cmd_uid="#uid#"
+           title="Puissance maximale — historique">
+        <div class="jca-m-lbl">P. max</div>
+        <div class="jca-m-v">
+          <span class="jca-m-num-sm jca-pw-val">#max_power#</span>
+          <span class="jca-m-u">VA</span>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="jca-m-foot">
+      <i class="far fa-calendar-alt"></i>
+      <span class="jca-m-foot-txt">Journée : <b class="jca-m-date">#data_date#</b></span>
+      <span class="jca-m-tag" title="Une seule mesure par jour, portant sur la journée d'hier">J-1</span>
+    </div>
+
+  </div>
+
+<script>
+/* Progressive enhancement : le widget reste correct sans ce script. */
+(function(){
+  try{
+    var r=document.getElementById('jcam-#eqLogic_id#');
+    if(!r||r.getAttribute('data-jca-init')==='1'){return;}
+    r.setAttribute('data-jca-init','1');
+    Array.prototype.forEach.call(r.querySelectorAll('.history'),function(el){
+      if(!el.getAttribute('data-cmd_id')){
+        el.classList.remove('history');
+        el.classList.remove('cmd');
+        el.removeAttribute('title');
+      }
+    });
+    var v=r.querySelector('.jca-m-num');
+    if(v&&v.textContent.replace(/\s/g,'')==='--'){r.classList.add('jca-empty');}
+    var p=r.querySelector('.jca-pw-val');
+    if(p&&p.textContent.replace(/\s/g,'').indexOf('--')===0){p.classList.add('jca-na');}
+  }catch(e){}
+})();
+</script>
+</div>

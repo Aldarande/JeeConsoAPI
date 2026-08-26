@@ -1,0 +1,41 @@
+{
+  "401 - Accès non autorisé": "401 - Accès non autorisé",
+  "Aucune méthode correspondante à : ": "Aucune méthode correspondante à : ",
+  "Identifiant d'équipement manquant": "Identifiant d'équipement manquant",
+  "Équipement introuvable": "Équipement introuvable",
+
+  "Consommation quotidienne": "Consommation quotidienne",
+  "Puissance maximale quotidienne": "Puissance maximale quotidienne",
+  "Date des données": "Date des données",
+  "Dernière mise à jour": "Dernière mise à jour",
+  "Actualiser maintenant": "Actualiser maintenant",
+
+  "Le PRM doit comporter exactement 14 chiffres.": "Le PRM doit comporter exactement 14 chiffres.",
+  "PRM absent ou mal formé (14 chiffres attendus).": "PRM absent ou mal formé (14 chiffres attendus).",
+  "PRM absent ou mal formé : 14 chiffres attendus.": "PRM absent ou mal formé : 14 chiffres attendus.",
+  "Token Bearer absent ou indéchiffrable. Ressaisissez-le.": "Token Bearer absent ou indéchiffrable. Ressaisissez-le.",
+  "Token Bearer absent, vide ou indéchiffrable. Ressaisissez-le puis sauvegardez.": "Token Bearer absent, vide ou indéchiffrable. Ressaisissez-le puis sauvegardez.",
+
+  "Token refusé (401) : il est invalide, expiré, ou n'autorise pas ce PRM. Régénérez-le sur conso.boris.sh puis ressaisissez-le.": "Token refusé (401) : il est invalide, expiré, ou n'autorise pas ce PRM. Régénérez-le sur conso.boris.sh puis ressaisissez-le.",
+  "Token refusé (401) : invalide, expiré, ou n'autorisant pas ce PRM.": "Token refusé (401) : invalide, expiré, ou n'autorisant pas ce PRM.",
+  "Requête refusée (400) : paramètres invalides. Vérifiez le PRM.": "Requête refusée (400) : paramètres invalides. Vérifiez le PRM.",
+  "Requête refusée (400) : vérifiez le PRM.": "Requête refusée (400) : vérifiez le PRM.",
+  "token refusé": "token refusé",
+  "requête invalide": "requête invalide",
+  "Service momentanément indisponible, nouvel essai programmé.": "Service momentanément indisponible, nouvel essai programmé.",
+  "Réponse du service illisible. Voir les logs.": "Réponse du service illisible. Voir les logs.",
+  "Échec : HTTP %s.": "Échec : HTTP %s.",
+  "Connexion réussie : %1$s point(s) reçu(s), unité « %2$s ».": "Connexion réussie : %1$s point(s) reçu(s), unité « %2$s ».",
+
+  "Données de la veille pas encore publiées par Enedis. ": "Données de la veille pas encore publiées par Enedis. ",
+  "nouvel essai dans la matinée": "nouvel essai dans la matinée",
+  "nouvel essai en début d'après-midi": "nouvel essai en début d'après-midi",
+  "toujours indisponible, abandon jusqu'à demain": "toujours indisponible, abandon jusqu'à demain",
+
+  "Import interrompu : le service a répondu HTTP %s sur la consommation quotidienne.": "Import interrompu : le service a répondu HTTP %s sur la consommation quotidienne.",
+  "Import interrompu : réponse du service illisible.": "Import interrompu : réponse du service illisible.",
+  "Puissance maximale non importée : HTTP %s.": "Puissance maximale non importée : HTTP %s.",
+  "Commande « Consommation quotidienne » introuvable — sauvegardez l'équipement.": "Commande « Consommation quotidienne » introuvable — sauvegardez l'équipement.",
+
+  "en attente de données": "en attente de données"
+}

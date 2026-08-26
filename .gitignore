@@ -1,0 +1,22 @@
+# Environnement local de développement
+.env/
+.env
+*.local
+
+# Claude Code
+.claude/settings.local.json
+.claude/worktrees/
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*~
+
+# Système
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Rien de sensible ne doit jamais être commité :
+# le token Bearer et le PRM vivent en base Jeedom, pas dans le dépôt.

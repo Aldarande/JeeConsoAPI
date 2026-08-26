@@ -1,0 +1,30 @@
+{
+  "id": "jeeconsoapi",
+  "name": "JeeConsoAPI",
+  "description": "Remonte la consommation électrique de votre compteur Linky dans Jeedom via Conso API (conso.boris.sh), passerelle open-source vers les API Enedis. Consommation quotidienne et puissance maximale journalière, historisées, avec import de l'historique passé. Un seul cycle d'appel par jour, dans le respect des quotas Enedis. Sans démon ni dépendance.",
+  "licence": "AGPL v3",
+  "author": "Aldarande",
+  "require": "4.4.0",
+  "category": "energy",
+  "icon": "icon.png",
+  "hasDependency": false,
+  "hasOwnDeamon": false,
+  "maxDependancyInstallTime": 0,
+  "pluginVersion": "1.0",
+  "documentation": "https://aldarande.github.io/jeeconsoapi/#language#/index.html",
+  "changelog": "https://aldarande.github.io/jeeconsoapi/#language#/changelog.html",
+  "bugs": "https://github.com/Aldarande/jeeconsoapi/issues",
+  "language": [
+    "fr_FR"
+  ],
+  "compatibility": [
+    "smart",
+    "luna",
+    "atlas",
+    "rpi",
+    "docker",
+    "diy",
+    "mobile"
+  ],
+  "hasPanel": false
+}
