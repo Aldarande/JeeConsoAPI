@@ -11,9 +11,9 @@
   "hasOwnDeamon": false,
   "maxDependancyInstallTime": 0,
   "pluginVersion": "1.0",
-  "documentation": "https://aldarande.github.io/jeeconsoapi/#language#/index.html",
-  "changelog": "https://aldarande.github.io/jeeconsoapi/#language#/changelog.html",
-  "bugs": "https://github.com/Aldarande/jeeconsoapi/issues",
+  "documentation": "https://aldarande.github.io/JeeConsoAPI/#language#/index.html",
+  "changelog": "https://aldarande.github.io/JeeConsoAPI/#language#/changelog.html",
+  "bugs": "https://github.com/Aldarande/JeeConsoAPI/issues",
   "language": [
     "fr_FR"
   ],

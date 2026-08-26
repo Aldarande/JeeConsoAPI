@@ -112,7 +112,7 @@ function jeeconsoapi_user_agent() {
                 $version = (string) $info['pluginVersion'];
             }
         }
-        $ua = 'JeeConsoAPI/' . $version . ' (Jeedom plugin) - github.com/Aldarande/jeeconsoapi';
+        $ua = 'JeeConsoAPI/' . $version . ' (Jeedom plugin) - github.com/Aldarande/JeeConsoAPI';
     }
     return $ua;
 }
