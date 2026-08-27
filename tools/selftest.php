@@ -342,6 +342,60 @@ check('configuration.php ne leve aucune exception dans sa garde',
       strpos($cfgCode, 'throw new Exception') === false);
 
 
+echo "\n=== 15. Canal de log visible dans Analyse > Logs ===\n";
+/* La page Analyse > Logs n enumere que les FICHIERS presents dans www/log/
+   (log::liste(), log.class.php:589). Sans fichier, le canal est invisible. */
+require_once __DIR__ . '/../plugin_info/install.php';
+
+$lvlBackup  = config::byKey('log::level::jeeconsoapi');
+$initBackup = config::byKey('log_level_initialized', 'jeeconsoapi', 0);
+
+/* Etat vierge : aucun fichier, niveau herite du global (Erreur en standard) */
+@unlink(log::getPathToLog('jeeconsoapi'));
+config::remove('log_level_initialized', 'jeeconsoapi');
+config::save('log::level::jeeconsoapi',
+    '{"100":"0","200":"0","300":"0","400":"0","1000":"0","default":"1"}');
+check('avant install : canal absent de log::liste()',
+      !in_array('jeeconsoapi', log::liste()));
+
+jeeconsoapi_setup_log();
+check('apres install : canal present dans log::liste()',
+      in_array('jeeconsoapi', log::liste()));
+check('apres install : niveau force a Info (200)',
+      (int) log::getLogLevel('jeeconsoapi') === 200,
+      'niveau = ' . log::getLogLevel('jeeconsoapi'));
+
+/* Un choix explicite de l utilisateur ne doit JAMAIS etre repris par une
+   mise a jour ulterieure du plugin.
+
+   On interroge la configuration STOCKEE, et non log::getLogLevel() : cette
+   derniere lit un cache statique peuple une fois par processus
+   (log.class.php:61), donc elle renverrait ici une valeur perimee. Ce n est
+   pas un defaut du plugin, mais un artefact du cache du coeur. */
+config::save('log::level::jeeconsoapi',
+    '{"100":"0","200":"0","300":"0","400":"1","1000":"0","default":"0"}');
+jeeconsoapi_setup_log();
+$stored = config::byKey('log::level::jeeconsoapi');
+if (!is_array($stored)) { $stored = json_decode((string) $stored, true); }
+check('un choix utilisateur survit a une reinstallation',
+      is_array($stored) && ($stored['400'] ?? '0') == '1' && ($stored['200'] ?? '0') == '0',
+      json_encode($stored));
+
+/* Seul le niveau 400 remonte au centre de messages : warning ne doit pas
+   y aller, sinon le fonctionnement normal spammerait l utilisateur. */
+check('warning (300) ne remonte pas au centre de messages',
+      strpos(file_get_contents('/var/www/html/core/class/log.class.php'),
+             '$level == 400 && self::getConfig(\'addMessageForErrorLog\')') !== false);
+
+/* Restauration de l etat initial de l instance */
+if ($lvlBackup !== '' && $lvlBackup !== null) {
+    config::save('log::level::jeeconsoapi',
+        is_array($lvlBackup) ? json_encode($lvlBackup) : $lvlBackup);
+}
+if ($initBackup == 1) { config::save('log_level_initialized', 1, 'jeeconsoapi'); }
+check('etat de configuration restaure', true);
+
+
 echo "\n=== Nettoyage ===\n";
 jeeconsoapi::byId($id)->remove();
 check('équipement de test supprimé', !is_object(jeeconsoapi::byId($id)));

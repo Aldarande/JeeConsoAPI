@@ -225,8 +225,11 @@ argument fait atterrir le point d'historique au bon jour, et non à l'heure de c
     sur chacun des ~1100 points. Idempotence via `history::byCmdIdDatetime()`.
 11. **Logs** : `log::add('jeeconsoapi', 'info|debug|warning|error', $message)`. Les erreurs
     commencent par le contexte puis `[fichier:ligne]` (helper `jeeconsoapi_log()`).
-    Rappel Jeedom : `error` **et** `warning` remontent au centre de messages — réserver
-    `warning` à ce qui mérite vraiment l'attention de l'utilisateur.
+    Rappel Jeedom, **vérifié dans le core** (`log.class.php:124-127`) : seul le niveau
+    **400 (`error`)** remonte au centre de messages, et uniquement si
+    `addMessageForErrorLog` est actif ; au-delà de 500 également. **`warning` (300) n'y va
+    pas** — contrairement à ce qu'affirme le CLAUDE.md de `jeewhatsapp`. `warning` est donc
+    utilisable pour signaler sans alerter.
 
 ---
 
@@ -265,6 +268,23 @@ tail -n 80 "C:/Users/athie/Documents/Docker/Jeedom/www/log/http.error"
 > abaissé. Un fichier `log/jeeconsoapi` vide ne signifie donc **pas** que le code n'a pas
 > tourné. Pour diagnostiquer, abaisser le niveau, ou lire directement l'état persisté
 > (`state_*`) via `getScheduleInfo()`.
+
+### Visibilité du canal dans « Analyse → Logs »
+
+`log::liste()` (`log.class.php:589`) énumère les **fichiers présents** dans `www/log/` :
+tant qu'aucune ligne n'a été écrite, le canal n'existe pas et n'apparaît nulle part dans
+l'UI. Combiné au niveau global à 400 alors que tout le fonctionnement normal du plugin est
+en `info`, le canal serait resté invisible en permanence.
+
+`jeeconsoapi_setup_log()` (`plugin_info/install.php`) règle les deux : il crée le fichier et
+force le niveau du canal à **Info** — mais **une seule fois**, gardé par le drapeau
+`config::byKey('log_level_initialized', 'jeeconsoapi')`. Un choix ultérieur de l'utilisateur
+ne doit jamais être repris par une mise à jour.
+
+> ⚠️ `log::getLogLevel()` lit un **cache statique peuplé une fois par processus**
+> (`log.class.php:61`). Après un `config::save('log::level::…')` dans le même processus, elle
+> renvoie encore l'ancienne valeur. Pour vérifier un changement, relire
+> `config::byKey('log::level::jeeconsoapi')` ou relancer un processus.
 
 ### Où se règle le niveau de log d'un plugin
 

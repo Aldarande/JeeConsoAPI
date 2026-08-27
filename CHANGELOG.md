@@ -83,7 +83,22 @@ même moment. Le dimensionnement ci-dessous a été établi par simulation du pa
 Courbe de charge par pas de 30 minutes (`consumption_load_curve`), production photovoltaïque,
 Tempo et Ecowatt.
 
+### Journalisation
+
+- Le canal `jeeconsoapi` **apparaît dans « Analyse → Logs » dès l'installation**. La page
+  n'énumère que les fichiers présents dans `log/` : tant qu'aucune ligne n'était écrite, le
+  canal restait invisible. Le plugin crée donc son fichier à l'installation.
+- **Le niveau du canal est initialisé à « Info »**, et non à l'héritage du niveau global
+  (« Erreur » sur une installation standard). Tout ce qui décrit le fonctionnement normal —
+  créneau tiré, données obtenues, plancher horaire ajusté — est en `info` : sans cela, un
+  utilisateur n'aurait jamais rien vu. Un cron quotidien produit 3 à 5 lignes par jour.
+- Ce réglage n'est appliqué **qu'à la première installation**. Si vous choisissez ensuite un
+  autre niveau, une mise à jour ne vous le reprendra pas.
+- Le niveau se règle dans **Plugins → Gestion des plugins → JeeConsoAPI**, section *Logs* —
+  et non dans *Réglages → Système → Configuration → Logs*, qui ne pilote que le niveau global
+  et les canaux du cœur de Jeedom.
+
 ### Qualité
 
-- Auto-test de non-régression : **87 vérifications**, aucun appel réseau, exécutable en CLI
+- Auto-test de non-régression : **93 vérifications**, aucun appel réseau, exécutable en CLI
   uniquement (`tools/selftest.php`, inaccessible par HTTP).
