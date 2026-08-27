@@ -452,6 +452,40 @@ jeeconsoapi::byId($dId)->remove();
 check('equipement de test supprime', !is_object(jeeconsoapi::byId($dId)));
 
 
+echo "\n=== 18. Le fichier de log reste ecrivable par le serveur web ===\n";
+/* Regression du 27/08/2026 : setup_log() creait le fichier avec @touch().
+   Lance depuis un shell root (docker exec, jeecli.php), il produisait un
+   fichier root:root qu Apache ne pouvait plus ouvrir. log::add() partait
+   alors en fatale sur fwrite() (log.class.php:120) et TOUTE la couche AJAX
+   tombait en HTTP 500 des qu elle journalisait. */
+require_once __DIR__ . '/../plugin_info/install.php';
+$logFile = log::getPathToLog('jeeconsoapi');
+$logDir  = log::getPathToLog('');
+
+@unlink($logFile);
+jeeconsoapi_setup_log();
+
+/* stat() est mis en cache par PHP : sans invalidation on compare des
+   valeurs d avant le chown. */
+clearstatcache();
+check('le fichier de log existe apres setup', file_exists($logFile));
+check('il est ecrivable par le processus courant', is_writable($logFile));
+/* Le proprietaire doit etre aligne sur celui du dossier log/, et non sur
+   celui qui a lance l installation. */
+check('proprietaire aligne sur le dossier log/',
+      @fileowner($logFile) === @fileowner($logDir),
+      'fichier=' . @fileowner($logFile) . ' dossier=' . @fileowner($logDir));
+check('groupe aligne sur le dossier log/',
+      @filegroup($logFile) === @filegroup($logDir),
+      'fichier=' . @filegroup($logFile) . ' dossier=' . @filegroup($logDir));
+
+/* Et surtout : log::add() ne doit pas exploser. */
+$ok = true;
+try { log::add('jeeconsoapi', 'info', '[selftest] ecriture de controle'); }
+catch (Throwable $t) { $ok = false; }
+check('log::add() ecrit sans fatale', $ok);
+
+
 echo "\n=== Nettoyage ===\n";
 jeeconsoapi::byId($id)->remove();
 check('équipement de test supprimé', !is_object(jeeconsoapi::byId($id)));

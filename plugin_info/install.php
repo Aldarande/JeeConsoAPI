@@ -58,9 +58,46 @@ require_once dirname(__FILE__) . '/../../../core/php/core.inc.php';
 =================================================================== */
 function jeeconsoapi_setup_log() {
     $logFile = log::getPathToLog('jeeconsoapi');
+    $logDir  = log::getPathToLog('');
+
     if (!file_exists($logFile)) {
         @touch($logFile);
+    }
+
+    /* Le fichier DOIT appartenir au serveur web.
+     *
+     * Une installation lancée depuis un shell root (CLI, `docker exec`,
+     * jeecli.php…) crée sinon un fichier root:root : Apache ne peut plus
+     * l'ouvrir, `fopen()` renvoie false, et `log::add()` part en fatale
+     * `fwrite(): Argument #1 must be of type resource, bool given`
+     * (log.class.php:120). Toute la couche AJAX du plugin tombe alors en
+     * HTTP 500 dès qu'elle journalise quoi que ce soit.
+     *
+     * On aligne donc le propriétaire sur celui du dossier log/ lui-même,
+     * plutôt que de coder « www-data » en dur : c'est portable quelle que
+     * soit la distribution ou l'image Docker.
+     */
+    if (file_exists($logFile) && $logDir !== '' && file_exists($logDir)) {
+        $uid = @fileowner($logDir);
+        $gid = @filegroup($logDir);
+        if ($uid !== false && @fileowner($logFile) !== $uid && function_exists('chown')) {
+            @chown($logFile, $uid);
+        }
+        if ($gid !== false && @filegroup($logFile) !== $gid && function_exists('chgrp')) {
+            @chgrp($logFile, $gid);
+        }
         @chmod($logFile, 0664);
+
+        /* PHP met en cache les résultats de stat() : sans invalidation, le
+           is_writable() ci-dessous lirait l'état d'AVANT le chown et pourrait
+           supprimer un fichier pourtant parfaitement sain. */
+        clearstatcache(true, $logFile);
+
+        if (!is_writable($logFile)) {
+            // On ne peut pas corriger : mieux vaut supprimer le fichier que
+            // laisser une bombe qui fera tomber chaque appel AJAX.
+            @unlink($logFile);
+        }
     }
 
     if (config::byKey('log_level_initialized', 'jeeconsoapi', 0) == 1) {

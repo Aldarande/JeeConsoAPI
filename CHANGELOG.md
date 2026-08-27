@@ -108,7 +108,20 @@ Tempo et Ecowatt.
   remontés tels quels, assortis d'un conseil actionnable pour les codes connus.
 - Forme réelle constatée en production le 27/08/2026 et couverte par un test.
 
+### Journalisation — robustesse
+
+- **Le fichier de log est forcé au propriétaire du dossier `log/`.** Créé par une
+  installation lancée depuis un shell root (`docker exec`, `jeecli.php`), il appartenait à
+  `root` : Apache ne pouvait plus l'ouvrir, `log::add()` partait en fatale
+  `fwrite(): Argument #1 must be of type resource, bool given`, et **toute la couche AJAX
+  tombait en HTTP 500 dès qu'elle journalisait**. Le propriétaire est aligné sur celui du
+  dossier `log/` plutôt que sur un « www-data » codé en dur, ce qui reste portable quelle que
+  soit l'image.
+- `clearstatcache()` avant le contrôle d'écriture : PHP met `stat()` en cache, et sans
+  invalidation le contrôle lisait l'état d'avant le `chown` — au risque de supprimer un
+  fichier pourtant sain.
+
 ### Qualité
 
-- Auto-test de non-régression : **104 vérifications**, aucun appel réseau, exécutable en CLI
+- Auto-test de non-régression : **109 vérifications**, aucun appel réseau, exécutable en CLI
   uniquement (`tools/selftest.php`, inaccessible par HTTP).
