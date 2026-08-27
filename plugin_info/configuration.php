@@ -19,9 +19,26 @@
 
 require_once dirname(__FILE__) . '/../../../core/php/core.inc.php';
 include_file('core', 'authentification', 'php');
-if (!isConnect()) {
-    include_file('desktop', '404', 'php');
-    die();
+/* Garde d'accès — le panneau de configuration est réservé aux administrateurs.
+ *
+ * Deux pièges évités ici :
+ *  - `include_file('desktop', '404', 'php')` : desktop/php/404.php n'existe pas
+ *    en Jeedom 4.6.1, include_file() lèverait « Fichier introuvable ».
+ *  - `throw` : contrairement à la branche `modal`, la branche `configure`
+ *    d'index.php (l.73-75) n'est PAS entourée d'un try/catch. Une exception
+ *    ici n'est donc rattrapée par personne et produit un HTTP 500 avec une
+ *    fatale dans log/http.error à chaque accès direct au fichier.
+ *
+ * `return` au niveau racine est valide aussi bien dans un fichier inclus (il
+ * interrompt l'inclusion et rend la main à index.php) que dans un script appelé
+ * directement (il termine l'exécution). Aucun contenu n'est servi dans les deux cas.
+ */
+if (!isConnect('admin')) {
+    if (!headers_sent()) {
+        http_response_code(401);
+    }
+    echo '<div class="alert alert-danger">{{401 - Accès non autorisé}}</div>';
+    return;
 }
 ?>
 

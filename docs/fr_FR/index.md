@@ -198,6 +198,12 @@ diagnostiquer votre configuration, et inversement un diagnostic répété ne con
 budget du cron. Mais aucun des deux n'est contournable — c'est ce qui garantit que le plugin
 tient sa promesse envers un service gratuit et mutualisé.
 
+**Combien de requêtes cela fait-il réellement ?** Un cycle vaut 2 requêtes, la consommation
+et la puissance maximale étant deux endpoints distincts. En usage normal, le plugin émet
+donc **2 requêtes par jour et par compteur**. Le pire cas théorique — toutes les tentatives
+échouent *et* vous cliquez sur tous les boutons jusqu'au plafond — atteint 26 requêtes.
+Ce n'est pas un fonctionnement nominal, mais autant que le chiffre soit énoncé.
+
 ---
 
 ## Limites connues

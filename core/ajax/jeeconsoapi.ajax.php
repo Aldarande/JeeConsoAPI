@@ -25,8 +25,15 @@ try {
     require_once dirname(__FILE__) . '/../../../../core/php/core.inc.php';
     include_file('core', 'authentification', 'php');
 
-    // SECURITY: ajax::init() vérifie le token CSRF et restreint aux actions listées
-    ajax::init(array('testConnection', 'refresh', 'backfill', 'getScheduleInfo'));
+    // Le paramètre de ajax::init() est $_allowGetAction : la liste des actions
+    // autorisées en GET (cf. core/class/ajax.class.php). Il ne s'agit PAS d'une
+    // liste blanche générale, et init() ne vérifie aucun jeton CSRF
+    // (ajax::getToken() est déprécié depuis Jeedom 4.4).
+    // Toutes les actions de ce fichier ont un effet de bord et consomment le
+    // quota d'un service mutualisé : aucune ne doit être accessible en GET.
+    // On appelle donc init() sans argument, comme le fait le core partout sauf
+    // sur ses endpoints d'upload.
+    ajax::init();
 
     if (!isConnect('admin')) {
         throw new Exception(__('401 - Accès non autorisé', __FILE__), 401);
@@ -77,5 +84,5 @@ try {
 
     throw new Exception(__('Aucune méthode correspondante à : ', __FILE__) . init('action'));
 } catch (Exception $e) {
-    ajax::error(displayExeption($e), $e->getCode());
+    ajax::error(displayException($e), $e->getCode());
 }

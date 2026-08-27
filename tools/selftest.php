@@ -266,6 +266,40 @@ if (!is_object($admin)) {
     check('équipement de widget supprimé', !is_object(jeeconsoapi::byId($wid)));
 }
 
+echo "\n=== 13. Expurgation du PRM avant journalisation ===\n";
+$body = '{"meter_reading":{"usage_point_id":"12345678901234","reading_type":{"unit":"Wh"}}}';
+$red  = jeeconsoapi_redact($body);
+check('PRM absent du corps expurge', strpos($red, '12345678901234') === false, $red);
+check('4 derniers chiffres conserves', strpos($red, '1234') !== false);
+check('texte sans PRM inchange', jeeconsoapi_redact('erreur 500') === 'erreur 500');
+
+echo "\n=== 14. Fonctions du core reellement existantes ===\n";
+/* Regression : le plugin appelait displayExeption(), coquille disparue du core
+   en 4.6.1 -> fatale « undefined function » sur TOUT le chemin d'erreur AJAX. */
+check('displayException() existe', function_exists('displayException'));
+check("displayExeption() (coquille) n'existe pas", !function_exists('displayExeption'));
+$ajax = file_get_contents(__DIR__ . '/../core/ajax/jeeconsoapi.ajax.php');
+check("l'ajax n'appelle plus la coquille", strpos($ajax, 'displayExeption') === false);
+check("l'ajax appelle displayException", strpos($ajax, 'displayException($e)') !== false);
+/* ajax::init() attend la liste des actions autorisees EN GET, pas une liste blanche */
+check('ajax::init() sans argument (aucune action en GET)',
+      preg_match('/ajax::init\(\s*\)/', $ajax) === 1);
+$cfg = file_get_contents(__DIR__ . '/../plugin_info/configuration.php');
+/* On teste le CODE, pas les commentaires : le fichier documente volontairement
+   l'appel fautif qu'il a remplace, une recherche de sous-chaine naive
+   trebucherait donc sur sa propre documentation. */
+$cfgCode = '';
+foreach (token_get_all($cfg) as $t) {
+    if (is_array($t) && in_array($t[0], array(T_COMMENT, T_DOC_COMMENT), true)) { continue; }
+    $cfgCode .= is_array($t) ? $t[1] : $t;
+}
+check("configuration.php n'appelle plus include_file(..., '404', ...)",
+      strpos($cfgCode, "'404'") === false);
+check('configuration.php exige un admin', strpos($cfgCode, "isConnect('admin')") !== false);
+check('configuration.php ne leve aucune exception dans sa garde',
+      strpos($cfgCode, 'throw new Exception') === false);
+
+
 echo "\n=== Nettoyage ===\n";
 jeeconsoapi::byId($id)->remove();
 check('équipement de test supprimé', !is_object(jeeconsoapi::byId($id)));

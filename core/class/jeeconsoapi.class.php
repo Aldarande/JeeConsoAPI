@@ -88,6 +88,20 @@ function jeeconsoapi_mask_prm($_prm) {
 }
 
 /* ===================================================================
+   Helper — expurge d'un texte tout ce qui ressemble à un PRM
+
+   Indispensable avant de journaliser un extrait de corps de réponse ou
+   un message d'erreur du service : l'enveloppe Enedis commence par
+   « usage_point_id »: "<14 chiffres>", et un message d'erreur peut
+   légitimement contenir le PRM en clair.
+=================================================================== */
+function jeeconsoapi_redact($_text) {
+    return preg_replace_callback('/\d{14}/', function ($m) {
+        return jeeconsoapi_mask_prm($m[0]);
+    }, (string) $_text);
+}
+
+/* ===================================================================
    Helper — configuration globale du plugin, bornée
 =================================================================== */
 function jeeconsoapi_cfg($_key, $_default, $_min, $_max) {
@@ -461,7 +475,7 @@ class jeeconsoapi extends eqLogic {
         if ($data === null) {
             jeeconsoapi_log('error', $_ctx,
                 'Réponse 200 mais corps inexploitable (ni meter_reading.interval_reading ni interval_reading). '
-                . 'Début du corps : ' . substr($res['body'], 0, 200), __FILE__, __LINE__);
+                . 'Début du corps : ' . jeeconsoapi_redact(substr($res['body'], 0, 200)), __FILE__, __LINE__);
             return array('status' => 'parse_error',
                          'message' => __('Réponse du service illisible. Voir les logs.', __FILE__));
         }
@@ -535,7 +549,7 @@ class jeeconsoapi extends eqLogic {
         if (is_array($_res['json'])) {
             foreach (array('error', 'message', 'error_description') as $key) {
                 if (!empty($_res['json'][$key]) && is_string($_res['json'][$key])) {
-                    $hint = ' — ' . $_res['json'][$key];
+                    $hint = ' — ' . jeeconsoapi_redact($_res['json'][$key]);
                     break;
                 }
             }
@@ -559,6 +573,21 @@ class jeeconsoapi extends eqLogic {
                 $this->setConfiguration('state_next_ts', strtotime('tomorrow') + 6 * 3600);
                 $this->saveState();
                 return array('status' => 'bad_request', 'code' => 400, 'message' => $msg);
+
+            case 403:
+            case 429:
+                // 429 = « tu m'en demandes trop », 403 = accès refusé. Réessayer le
+                // jour même serait exactement le contraire de ce que le service
+                // demande. On s'aligne donc sur 400/401 : abandon jusqu'à demain.
+                $msg = ($code === 429)
+                     ? __('Trop de requêtes (429) : le service demande de lever le pied. '
+                        . 'Aucun nouvel essai avant demain.', __FILE__)
+                     : __('Accès refusé (403). Aucun nouvel essai avant demain.', __FILE__);
+                jeeconsoapi_log('warning', $_ctx, $msg . $hint, __FILE__, __LINE__);
+                $this->setConfiguration('state_last_error', 'HTTP ' . $code);
+                $this->setConfiguration('state_next_ts', strtotime('tomorrow') + 6 * 3600);
+                $this->saveState();
+                return array('status' => 'rate_limited', 'code' => $code, 'message' => $msg);
 
             default:
                 // 500 et tout le reste (timeout réseau, code 0) : réessai différé silencieux.

@@ -7,6 +7,55 @@ respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ---
 
+## [1.0.1] — 2026-08-27
+
+Correctifs issus de la validation du plugin, avant toute mise en production.
+
+### Corrigé
+
+- 🔴 **Toute la couche AJAX renvoyait un HTTP 500 au corps vide sur son chemin d'erreur.**
+  Le fichier appelait `displayExeption()`, une coquille historique du core disparue en
+  Jeedom 4.6.1 au profit de `displayException()`. Conséquence : chaque exception attrapée
+  provoquait une fatale « undefined function », et **aucun message d'erreur n'atteignait
+  jamais l'interface** — ni « plafond atteint », ni « token absent », ni « PRM invalide »,
+  ni « équipement introuvable ». L'utilisateur bloqué ne pouvait pas savoir pourquoi.
+- 🟠 **Les actions à effet de bord étaient accessibles en GET.** Le paramètre de
+  `ajax::init()` est la liste des actions *autorisées en GET*, pas une liste blanche
+  générale, et cette méthode ne vérifie aucun jeton CSRF. Le plugin ouvrait donc en GET
+  `testConnection`, `refresh` et `backfill` — trois actions qui consomment le quota d'un
+  service mutualisé. `ajax::init()` est désormais appelée sans argument, comme le fait le
+  core partout sauf sur ses endpoints d'upload.
+- 🟠 **`plugin_info/configuration.php` produisait une fatale PHP à chaque accès direct.**
+  Sa garde appelait `include_file('desktop', '404', 'php')`, or `desktop/php/404.php`
+  n'existe pas en Jeedom 4.6.1. La garde exige maintenant un administrateur et rend la main
+  proprement par un `return` : contrairement à la branche `modal`, la branche `configure`
+  d'`index.php` n'est pas entourée d'un `try/catch`, donc lever une exception ici aurait
+  simplement remplacé une fatale par une autre.
+- 🟡 **Le PRM complet pouvait atterrir en clair dans les logs.** En cas de réponse
+  illisible, le plugin journalisait les 200 premiers octets du corps — or l'enveloppe Enedis
+  commence par `usage_point_id`, largement dans cette fenêtre. Idem pour les messages
+  d'erreur renvoyés par le service. Un helper `jeeconsoapi_redact()` masque désormais toute
+  suite de 14 chiffres avant journalisation. Le token, lui, ne transitant que par l'en-tête
+  `Authorization`, n'était pas concerné.
+- 🟡 **Un `429 Too Many Requests` était traité comme une panne passagère** et redéclenchait
+  un essai le jour même — exactement l'inverse de ce que ce code signifie. `429` et `403`
+  sont désormais terminaux pour la journée, comme `400` et `401`.
+
+### Modifié
+
+- Le README et la documentation énoncent désormais le volume d'appels réel : 2 requêtes par
+  jour en usage nominal, et le pire cas théorique de 26.
+- Auto-test porté à **77 vérifications**, dont une couverture de non-régression sur chacun
+  des correctifs ci-dessus.
+
+### Limites connues, assumées
+
+- Le décompte des quotas est un lire-puis-écrire sans verrou : deux actions rigoureusement
+  simultanées peuvent ne consommer qu'un crédit. Le plafond est une politique de courtoisie,
+  pas une frontière de sécurité — un verrouillage n'est pas justifié à ce stade.
+
+---
+
 ## [1.0] — 2026-08-26
 
 Première version publiée. Périmètre « consommation seule ».

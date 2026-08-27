@@ -172,6 +172,12 @@ Deux compteurs indépendants, affichés dans l'encart « Planification » :
 Aucun des deux n'est contournable : c'est ce qui garantit que le plugin tient sa promesse
 envers un service gratuit et mutualisé.
 
+Pour être tout à fait transparent sur le volume : un cycle vaut **2 requêtes** (consommation
+et puissance maximale sont deux endpoints distincts). En usage normal le plugin émet donc
+**2 requêtes par jour**. Le pire cas théorique, si toutes les tentatives échouaient *et* que
+vous cliquiez sur tous les boutons jusqu'au plafond, est de 26 requêtes — un plancher haut
+qui ne se produit pas en fonctionnement nominal, mais qu'il est honnête d'énoncer.
+
 ---
 
 ## Soutenir le développement

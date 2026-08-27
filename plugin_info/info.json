@@ -10,7 +10,7 @@
   "hasDependency": false,
   "hasOwnDeamon": false,
   "maxDependancyInstallTime": 0,
-  "pluginVersion": "1.0",
+  "pluginVersion": "1.0.1",
   "documentation": "https://aldarande.github.io/JeeConsoAPI/#language#/index.html",
   "changelog": "https://aldarande.github.io/JeeConsoAPI/#language#/changelog.html",
   "bugs": "https://github.com/Aldarande/JeeConsoAPI/issues",
