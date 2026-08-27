@@ -98,7 +98,17 @@ Tempo et Ecowatt.
   et non dans *Réglages → Système → Configuration → Logs*, qui ne pilote que le niveau global
   et les canaux du cœur de Jeedom.
 
+### Diagnostic des erreurs
+
+- **Les erreurs Enedis sont désormais lisibles.** Conso API enveloppe le refus de l'API
+  amont, et le message utile est imbriqué sous `error` — pas à la racine. Le plugin ne lisait
+  que la racine et affichait « The Enedis API returned an error » puis un générique
+  « vérifiez le PRM », ce qui envoyait l'utilisateur sur une fausse piste alors que son PRM
+  était parfaitement correct. Le code (`ADAM-DC-0007`) et sa description sont maintenant
+  remontés tels quels, assortis d'un conseil actionnable pour les codes connus.
+- Forme réelle constatée en production le 27/08/2026 et couverte par un test.
+
 ### Qualité
 
-- Auto-test de non-régression : **93 vérifications**, aucun appel réseau, exécutable en CLI
+- Auto-test de non-régression : **104 vérifications**, aucun appel réseau, exécutable en CLI
   uniquement (`tools/selftest.php`, inaccessible par HTTP).

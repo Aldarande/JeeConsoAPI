@@ -396,6 +396,62 @@ if ($initBackup == 1) { config::save('log_level_initialized', 1, 'jeeconsoapi');
 check('etat de configuration restaure', true);
 
 
+echo "\n=== 16. Diagnostic d erreur remonte par Enedis ===\n";
+/* Forme REELLE observee en production le 27/08/2026 : Conso API enveloppe
+   l erreur Enedis, le message utile est imbrique sous `error` et non a la
+   racine. Ne lire que la racine renvoyait "The Enedis API returned an error",
+   qui n apprend rien, et le plugin affichait "verifiez le PRM" alors que le
+   PRM etait parfaitement correct. */
+$reel = json_decode('{"status":400,"message":"The Enedis API returned an error",'
+      . '"error":{"error":"ADAM-DC-0007",'
+      . '"error_description":"Le client n est pas titulaire du point demande."}}', true);
+$a = jeeconsoapi_api_error($reel);
+check('code Enedis extrait', $a['code'] === 'ADAM-DC-0007', $a['code']);
+check('description Enedis extraite',
+      strpos($a['text'], 'titulaire') !== false, $a['text']);
+check('le message generique n est PAS retenu',
+      strpos($a['text'], 'The Enedis API returned an error') === false, $a['text']);
+check('conseil actionnable fourni pour ADAM-DC-0007',
+      strpos(jeeconsoapi_enedis_hint('ADAM-DC-0007'), 'consentement') !== false);
+check('aucun conseil invente pour un code inconnu',
+      jeeconsoapi_enedis_hint('XYZ-000') === '');
+
+/* Formes plates, en repli */
+$plat = array('error_description' => 'message plat');
+check('forme plate encore geree', jeeconsoapi_api_error($plat)['text'] === 'message plat');
+check('corps vide -> extraction vide', jeeconsoapi_api_error(null)['text'] === '');
+
+/* Le PRM ne doit jamais fuir via un message d erreur du service */
+$fuite = array('error' => array('error_description' => 'PRM 22254413892494 inconnu'));
+check('PRM expurge du diagnostic',
+      strpos(jeeconsoapi_api_error($fuite)['text'], '22254413892494') === false,
+      jeeconsoapi_api_error($fuite)['text']);
+
+echo "\n=== 17. Un equipement desactive ne synchronise pas ===\n";
+/* Rappel utile : eqLogic::checkAndUpdateCmd() renvoie false si isEnable=0,
+   et pull() ignore ces equipements. Un equipement desactive ne remontera
+   donc jamais rien, quelle que soit la sante de l API. */
+$dis = new jeeconsoapi();
+$dis->setName('__selftest_disabled');
+$dis->setEqType_name('jeeconsoapi');
+$dis->setIsEnable(1);
+$dis->setConfiguration('prm', '12345678901234');
+$dis->setConfiguration('token', $tok);
+$dis->save();
+$dId = $dis->getId();
+jeeconsoapi::byId($dId)->checkAndUpdateCmd('daily_consumption', 42, date('Y-m-d H:i:s'));
+check('equipement actif : la commande est mise a jour',
+      (float) jeeconsoapi::byId($dId)->getCmd('info','daily_consumption')->execCmd() === 42.0);
+
+$d2 = jeeconsoapi::byId($dId);
+$d2->setIsEnable(0);
+$d2->save();
+$refus = jeeconsoapi::byId($dId)->checkAndUpdateCmd('daily_consumption', 99, date('Y-m-d H:i:s'));
+check('equipement desactive : mise a jour refusee', $refus === false);
+jeeconsoapi::byId($dId)->remove();
+check('equipement de test supprime', !is_object(jeeconsoapi::byId($dId)));
+
+
 echo "\n=== Nettoyage ===\n";
 jeeconsoapi::byId($id)->remove();
 check('équipement de test supprimé', !is_object(jeeconsoapi::byId($id)));

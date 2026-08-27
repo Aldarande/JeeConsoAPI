@@ -220,7 +220,8 @@ force un cycle immédiat, **hors planification**.
 |---|---|
 | Aucune donnée juste après l'installation | Normal : le premier appel a lieu le lendemain matin. Utilisez **« Actualiser maintenant »** pour ne pas attendre. |
 | `401` dans les logs | Le token est invalide, expiré, ou n'autorise pas ce PRM. Régénérez-le sur conso.boris.sh puis ressaisissez-le. |
-| `400` dans les logs | Vérifiez le PRM : exactement 14 chiffres, et celui associé au consentement. |
+| `400` dans les logs | Un `400` relaie presque toujours un refus **Enedis**, pas une requête malformée : lisez le code et sa description (tableau ci-dessous). |
+| Léquipement ne remonte rien | Vérifiez quil est **activé**. Un équipement désactivé est ignoré par le cron, et ses commandes refusent toute mise à jour. |
 | « Données de la veille pas encore publiées » | Enedis a du retard. Le plugin retentera de lui-même. |
 | `500` dans les logs | Panne côté Enedis ou Conso API. Un nouvel essai est programmé automatiquement. |
 | Le widget affiche `--` | Aucune valeur n'a encore été collectée. Consultez l'encart « Planification ». |
@@ -250,6 +251,21 @@ Les logs se consultent dans **Analyse → Logs → jeeconsoapi**.
 | **Erreur** | uniquement le bloquant : token refusé, PRM invalide |
 
 Le journal lui-même se consulte dans **Analyse → Logs**, canal `jeeconsoapi`.
+
+### Codes d'erreur Enedis relayés par un `400`
+
+Conso API relaie tel quel le refus de l'API Enedis. Le plugin affiche le code et sa
+description : c'est cette description qui dit quoi corriger, pas le code HTTP.
+
+| Code | Signification | Que faire |
+|---|---|---|
+| `ADAM-DC-0007` | « Le client n'est pas titulaire du point demandé » | Le PRM et le token sont cohérents, mais Enedis ne vous reconnaît pas comme titulaire de ce compteur. Refaites le consentement sur conso.boris.sh en veillant à ce que **le nom et l'adresse correspondent exactement au titulaire du contrat d'électricité**. Cas typique après un déménagement ou un changement de titulaire. |
+| `ADAM-DC-0006`, `ADAM-ERR0123` | Consentement absent ou expiré | Refaites le consentement sur conso.boris.sh. |
+
+> Un `400` **ne signifie pas** que votre PRM est mal saisi. Si le plugin l'a accepté, il fait
+> bien 14 chiffres ; et si le token a été émis pour lui, les deux sont cohérents. Le problème
+> est alors côté consentement Enedis.
+
 
 L'encart **« Planification »** de la page du compteur affiche l'essentiel de cet état sans
 avoir à toucher aux niveaux de log.

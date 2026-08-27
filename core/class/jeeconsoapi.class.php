@@ -260,6 +260,77 @@ function jeeconsoapi_retry_after_ts($_header) {
 }
 
 /* ===================================================================
+   Helper — extrait le diagnostic réel d'une réponse d'erreur
+
+   Forme OBSERVÉE EN PRODUCTION : Conso API enveloppe l'erreur Enedis, et
+   le message utile est imbriqué sous `error`, pas à la racine :
+
+     { "status": 400,
+       "message": "The Enedis API returned an error",
+       "error": { "error": "ADAM-DC-0007",
+                  "error_description": "Le client n'est pas titulaire du point demandé." } }
+
+   Ne lire que la racine renvoie « The Enedis API returned an error », qui
+   n'apprend rien à l'utilisateur — alors que `error_description` lui dit
+   exactement quoi corriger.
+
+   Retourne array('code' => 'ADAM-DC-0007', 'text' => '…'), PRM expurgé.
+=================================================================== */
+function jeeconsoapi_api_error($_json) {
+    $code = '';
+    $text = '';
+    if (!is_array($_json)) {
+        return array('code' => $code, 'text' => $text);
+    }
+
+    // 1. Forme imbriquée (Enedis via Conso API)
+    if (isset($_json['error']) && is_array($_json['error'])) {
+        $inner = $_json['error'];
+        if (!empty($inner['error']) && is_string($inner['error'])) {
+            $code = $inner['error'];
+        }
+        foreach (array('error_description', 'message', 'detail') as $k) {
+            if (!empty($inner[$k]) && is_string($inner[$k])) {
+                $text = $inner[$k];
+                break;
+            }
+        }
+    }
+
+    // 2. Formes plates, en repli
+    if ($text === '') {
+        foreach (array('error_description', 'error', 'message', 'detail') as $k) {
+            if (!empty($_json[$k]) && is_string($_json[$k])) {
+                $text = $_json[$k];
+                break;
+            }
+        }
+    }
+
+    return array('code' => $code, 'text' => jeeconsoapi_redact($text));
+}
+
+/* ===================================================================
+   Helper — conseil actionnable pour les codes Enedis connus
+=================================================================== */
+function jeeconsoapi_enedis_hint($_code) {
+    switch ($_code) {
+        case 'ADAM-DC-0007':
+            return __("Enedis ne vous reconnaît pas comme titulaire de ce point de livraison. "
+                    . "Le PRM et le token sont pourtant cohérents : c'est le consentement qui "
+                    . "est en cause. Refaites-le sur conso.boris.sh en veillant à ce que le nom "
+                    . "et l'adresse correspondent EXACTEMENT au titulaire du contrat "
+                    . "d'électricité de ce compteur.", __FILE__);
+        case 'ADAM-ERR0123':
+        case 'ADAM-DC-0006':
+            return __("Le consentement associé à ce token semble absent ou expiré. "
+                    . "Refaites-le sur conso.boris.sh.", __FILE__);
+        default:
+            return '';
+    }
+}
+
+/* ===================================================================
    Extraction des points de mesure
 
    La documentation de Conso API ne publie pas le schéma exact du corps.
@@ -623,20 +694,17 @@ class jeeconsoapi extends eqLogic {
     --------------------------------------------------------------- */
     public function handleHttpError($_res, $_ctx, $_type) {
         $code = (int) $_res['code'];
+        $api  = jeeconsoapi_api_error($_res['json']);
         $hint = '';
-        if (is_array($_res['json'])) {
-            foreach (array('error', 'message', 'error_description') as $key) {
-                if (!empty($_res['json'][$key]) && is_string($_res['json'][$key])) {
-                    $hint = ' — ' . jeeconsoapi_redact($_res['json'][$key]);
-                    break;
-                }
-            }
+        if ($api['code'] !== '' || $api['text'] !== '') {
+            $hint = ' — ' . trim(($api['code'] !== '' ? '[' . $api['code'] . '] ' : '') . $api['text']);
         }
 
         switch ($code) {
             case 401:
                 $msg = __("Token refusé (401) : il est invalide, expiré, ou n'autorise pas ce PRM. "
                         . "Régénérez-le sur conso.boris.sh puis ressaisissez-le.", __FILE__);
+                if ($api['text'] !== '') { $msg .= ' — ' . $api['text']; }
                 jeeconsoapi_log('error', $_ctx, $msg . $hint, __FILE__, __LINE__);
                 $this->setConfiguration('state_last_error', '401 ' . __('token refusé', __FILE__));
                 // Aucun nouvel essai aujourd'hui : réessayer ne corrigera rien.
@@ -645,7 +713,19 @@ class jeeconsoapi extends eqLogic {
                 return array('status' => 'auth_error', 'code' => 401, 'message' => $msg);
 
             case 400:
-                $msg = __('Requête refusée (400) : paramètres invalides. Vérifiez le PRM.', __FILE__);
+                /* Un 400 de Conso API est le plus souvent un refus ENEDIS relayé, pas une
+                   requête malformée : le message utile vient de l'API amont. Le taire et
+                   afficher « vérifiez le PRM » envoie l'utilisateur sur une fausse piste
+                   quand son PRM est parfaitement correct. */
+                $advice = jeeconsoapi_enedis_hint($api['code']);
+                if ($api['text'] !== '') {
+                    $msg = sprintf(__('Requête refusée (400)%1$s : %2$s', __FILE__),
+                                   ($api['code'] !== '' ? ' [' . $api['code'] . ']' : ''),
+                                   $api['text']);
+                    if ($advice !== '') { $msg .= ' ' . $advice; }
+                } else {
+                    $msg = __('Requête refusée (400) : paramètres invalides. Vérifiez le PRM.', __FILE__);
+                }
                 jeeconsoapi_log('error', $_ctx, $msg . $hint, __FILE__, __LINE__);
                 $this->setConfiguration('state_last_error', '400 ' . __('requête invalide', __FILE__));
                 $this->setConfiguration('state_next_ts', strtotime('tomorrow') + 6 * 3600);
@@ -776,6 +856,7 @@ class jeeconsoapi extends eqLogic {
 
         $res  = jeeconsoapi_http_get(self::TYPE_DAILY, $prm, $token, $start, $end);
         $data = jeeconsoapi_extract($res['json']);
+        $api  = jeeconsoapi_api_error($res['json']);
 
         $result = array(
             'code'     => $res['code'],
@@ -795,11 +876,24 @@ class jeeconsoapi extends eqLogic {
             $result['message'] = __("Token refusé (401) : invalide, expiré, ou n'autorisant pas ce PRM.", __FILE__);
         } elseif ($res['code'] === 400) {
             $result['ok'] = false;
-            $result['message'] = __('Requête refusée (400) : vérifiez le PRM.', __FILE__);
+            /* Remonter le diagnostic Enedis tel quel : c'est lui qui dit à
+               l'utilisateur quoi corriger. Un « vérifiez le PRM » générique
+               l'enverrait sur une fausse piste quand son PRM est correct. */
+            $advice = jeeconsoapi_enedis_hint($api['code']);
+            if ($api['text'] !== '') {
+                $result['message'] = sprintf(__('Requête refusée (400)%1$s : %2$s', __FILE__),
+                                             ($api['code'] !== '' ? ' [' . $api['code'] . ']' : ''),
+                                             $api['text'])
+                                   . ($advice !== '' ? ' ' . $advice : '');
+            } else {
+                $result['message'] = __('Requête refusée (400) : vérifiez le PRM.', __FILE__);
+            }
         } else {
             $result['ok'] = false;
-            $result['message'] = sprintf(__('Échec : HTTP %s.', __FILE__), $res['code']);
+            $result['message'] = sprintf(__('Échec : HTTP %s.', __FILE__), $res['code'])
+                               . ($api['text'] !== '' ? ' — ' . $api['text'] : '');
         }
+        $result['api_code'] = $api['code'];
 
         jeeconsoapi_log('info', $ctx,
             'Résultat du test : HTTP ' . $res['code'] . ', ' . $result['points']
