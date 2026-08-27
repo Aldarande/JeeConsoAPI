@@ -232,9 +232,24 @@ Les logs se consultent dans **Analyse → Logs → jeeconsoapi**.
 > « données de la veille pas encore publiées », « cycle terminé avec succès ») sont émis en
 > niveau **Info** et n'apparaîtront donc pas tant que vous n'aurez pas abaissé le niveau.
 >
-> Pour tout voir : **Réglages → Système → Configuration → Logs**, puis passez le niveau du
-> plugin `jeeconsoapi` à **Info**. Les erreurs bloquantes (token refusé, PRM invalide)
-> restent visibles quoi qu'il arrive, et remontent aussi au centre de messages.
+> Pour tout voir : **Plugins → Gestion des plugins → JeeConsoAPI**, section *Logs*, puis
+> choisissez **Info**. Le réglage se fait bien sur la page du plugin — la page
+> *Réglages → Système → Configuration → Logs* ne pilote que le niveau global et les canaux
+> du cœur de Jeedom (scenario, market, api…), pas ceux des plugins.
+>
+> Les erreurs bloquantes (token refusé, PRM invalide) restent visibles quoi qu'il arrive, et
+> remontent aussi au centre de messages.
+
+| Niveau choisi | Ce que vous voyez |
+|---|---|
+| **Aucun** | rien |
+| **Défaut** | hérite du niveau global — *Erreur* sur une installation standard |
+| **Debug** | tout, y compris le détail interne |
+| **Info** | le déroulement normal : créneau tiré, données obtenues, plancher ajusté |
+| **Warning** | les alertes : puissance max indisponible, plafond manuel atteint, `429` |
+| **Erreur** | uniquement le bloquant : token refusé, PRM invalide |
+
+Le journal lui-même se consulte dans **Analyse → Logs**, canal `jeeconsoapi`.
 
 L'encart **« Planification »** de la page du compteur affiche l'essentiel de cet état sans
 avoir à toucher aux niveaux de log.

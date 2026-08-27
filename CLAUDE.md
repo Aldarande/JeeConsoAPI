@@ -262,9 +262,32 @@ tail -n 80 "C:/Users/athie/Documents/Docker/Jeedom/www/log/http.error"
 
 > ⚠️ **Le niveau de log global de cette instance est 400 (ERROR)** : les `log::add(…,'info',…)`
 > et `'warning'` **ne sont pas écrits** tant que le niveau du canal `jeeconsoapi` n'est pas
-> abaissé à Info. Un fichier `log/jeeconsoapi` vide ne signifie donc **pas** que le code n'a
-> pas tourné. Pour diagnostiquer, abaisser le niveau, ou lire directement l'état persisté
+> abaissé. Un fichier `log/jeeconsoapi` vide ne signifie donc **pas** que le code n'a pas
+> tourné. Pour diagnostiquer, abaisser le niveau, ou lire directement l'état persisté
 > (`state_*`) via `getScheduleInfo()`.
+
+### Où se règle le niveau de log d'un plugin
+
+**Sur la page du plugin** (`Plugins → Gestion des plugins → JeeConsoAPI`), pas dans
+`Réglages → Système → Configuration → Logs`. Cette dernière n'énumère qu'une liste **codée en
+dur** de canaux du cœur (`desktop/php/administration.php:971` :
+`array('scenario','plugin','market','api','connection','interact','tts','report','event')`) —
+aucun plugin n'y figure. Les radios Aucun / Défaut / Debug / Info / Warning / Erreur d'un
+plugin sont générées par `desktop/js/plugin.js:304-309`.
+
+La clé de configuration `log::level::<pluginId>` est créée automatiquement à l'activation
+(`plugin.class.php:1035`), avec `default:1` — donc héritage du niveau global. La résolution
+se fait dans `log::getLogLevel()` (`log.class.php:71`).
+
+En CLI, pour basculer un canal sans passer par l'UI :
+
+```bash
+docker exec jeedom-dev php -r "require_once '/var/www/html/core/php/core.inc.php'; config::save('log::level::jeeconsoapi', '{\"100\":\"0\",\"200\":\"1\",\"300\":\"0\",\"400\":\"0\",\"1000\":\"0\",\"default\":\"0\"}');"
+```
+
+Vérifié en conditions réelles : en Défaut seul `[ERROR]` est écrit ; en Info, `[INFO]`,
+`[WARNING]` et `[ERROR]` le sont, `[DEBUG]` non. Le canal apparaît bien dans `log::liste()`,
+donc dans le visualiseur `Analyse → Logs`.
 
 > 🔴 **Piège connu** : le fichier d'erreurs PHP s'appelle **`http.error`**, pas `http`. Un
 > `jeedom-dev.sh log:errors http` lit un fichier inexistant et affiche « aucune erreur

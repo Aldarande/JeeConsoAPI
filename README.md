@@ -157,8 +157,10 @@ conséquence :
 Les logs se trouvent dans **Analyse → Logs → jeeconsoapi**.
 
 > Par défaut Jeedom ne consigne que le niveau **Erreur**. Les messages qui décrivent le
-> déroulement normal sont émis en **Info** : pour les voir, passez le niveau de log du plugin
-> à *Info* dans **Réglages → Système → Configuration → Logs**.
+> déroulement normal sont émis en **Info** : pour les voir, allez dans
+> **Plugins → Gestion des plugins → JeeConsoAPI**, section *Logs*, et choisissez **Info**.
+> Le réglage est bien sur la page du plugin — *Réglages → Système → Configuration → Logs* ne
+> pilote que le niveau global et les canaux du cœur de Jeedom, pas ceux des plugins.
 
 ### Limites d'appel
 
