@@ -102,7 +102,7 @@ La doc officielle ne publie pas le schéma. Le parser (`jeeconsoapi_extract()`) 
 
 - **Un seul cycle d'appel par jour et par compteur.** Un cycle = 2 requêtes
   (consommation + puissance max), car ce sont deux endpoints distincts.
-- **Horaire tiré au hasard** entre 06:00:00 et 09:59:59 (`drawMorningSlot()`), jamais pile à
+- **Horaire tiré au hasard** entre 08:00:00 et 09:59:59 (`drawMorningSlot()`), jamais pile à
   l'heure ronde.
 - **Nouvel essai différé** si les données J-1 ne sont pas publiées : une fois dans la
   matinée, une fois en début d'après-midi, puis abandon jusqu'au lendemain.

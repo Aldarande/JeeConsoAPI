@@ -48,22 +48,28 @@ if (!isConnect('admin')) {
         <legend><i class="fas fa-clock"></i> {{Fenêtre d'appel quotidienne}}</legend>
 
         <div class="alert alert-info">
-            {{Conso API impose un maximum d'une requête par jour et par compteur. Le plugin
-            tire au hasard un horaire d'appel dans la fenêtre du matin, afin de ne jamais
-            solliciter le service pile à l'heure ronde. Les données de la veille sont
-            généralement publiées par Enedis vers 8h, parfois avec 1 à 2 heures de retard :
-            si elles sont absentes, un unique nouvel essai est programmé l'après-midi.}}
+            {{Conso API impose un maximum d'un cycle d'appel par jour et par compteur, et ses
+            quotas Enedis sont PARTAGÉS entre tous les utilisateurs du service. Le plugin tire
+            donc au hasard un horaire dans la fenêtre ci-dessous, afin que les installations
+            ne se présentent jamais toutes en même temps.}}
+        </div>
+        <div class="alert alert-warning">
+            {{Ne descendez la fenêtre avant 8h que si vous savez que vos données arrivent plus
+            tôt. Enedis publie généralement vers 8h : appeler avant, c'est une requête perdue
+            suivie d'un nouvel essai, soit deux appels pour rien — multipliés par tout le parc
+            installé. Le plugin apprend de lui-même l'heure à partir de laquelle vos données
+            sont réellement disponibles et ne tire jamais en dessous.}}
         </div>
 
         <div class="form-group">
             <label class="col-sm-4 control-label">
                 {{Début de la fenêtre du matin}}
-                <sup><i class="fas fa-question-circle tooltips" title="{{Heure la plus tôt à laquelle un appel peut avoir lieu. Défaut : 6.}}"></i></sup>
+                <sup><i class="fas fa-question-circle tooltips" title="{{Heure la plus tôt à laquelle un appel peut avoir lieu. Défaut : 8, car Enedis publie rarement avant. Descendre cette valeur génère surtout des requêtes perdues.}}"></i></sup>
             </label>
             <div class="col-sm-2">
                 <input type="number" min="0" max="23" step="1"
                        class="configKey form-control" data-l1key="morning_start"
-                       placeholder="6"/>
+                       placeholder="8"/>
             </div>
         </div>
 
@@ -88,6 +94,18 @@ if (!isConnect('admin')) {
                 <input type="number" min="10" max="23" step="1"
                        class="configKey form-control" data-l1key="afternoon_retry"
                        placeholder="14"/>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="col-sm-4 control-label">
+                {{Étalement du rattrapage de l'après-midi (heures)}}
+                <sup><i class="fas fa-question-circle tooltips" title="{{Largeur de la fenêtre du nouvel essai. Un retard de publication chez Enedis touche tout le parc le même matin : si tous les plugins retentaient dans la même demi-heure, on fabriquerait la pointe qu'on cherche à éviter. Défaut : 3 heures.}}"></i></sup>
+            </label>
+            <div class="col-sm-2">
+                <input type="number" min="1" max="8" step="1"
+                       class="configKey form-control" data-l1key="afternoon_spread"
+                       placeholder="3"/>
             </div>
         </div>
 

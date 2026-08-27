@@ -109,7 +109,7 @@ jour et par compteur, à un horaire non rond. Le plugin applique cette règle st
 - La tâche cron s'exécute toutes les 5 minutes entre 6h et 14h55, mais **n'émet une requête
   que lorsque l'état du compteur l'autorise**. Le rythme du cron n'a rien à voir avec le
   rythme des appels.
-- Chaque jour, un **horaire est tiré au hasard entre 06:00:00 et 09:59:59**.
+- Chaque jour, un **horaire est tiré au hasard entre 08:00:00 et 09:59:59**.
 - Enedis publie les données de la veille vers 8h, parfois avec 1 à 2 heures de retard. Si
   elles sont absentes, le plugin retente **une fois** dans la matinée, puis **une fois** en
   début d'après-midi, et abandonne jusqu'au lendemain.
@@ -124,10 +124,67 @@ dernières données obtenues, prochain appel autorisé, appels déjà consommés
 
 | Paramètre | Défaut | Rôle |
 |---|---|---|
-| Début de la fenêtre du matin | 6 | Heure la plus tôt à laquelle un appel peut avoir lieu |
+| Début de la fenêtre du matin | 8 | Heure la plus tôt à laquelle un appel peut avoir lieu |
 | Fin de la fenêtre du matin | 10 | Heure limite de la fenêtre matinale (exclue) |
 | Heure du nouvel essai de l'après-midi | 14 | Heure à partir de laquelle le plugin retente |
 | Appels maximum par jour | 3 | Plafond dur, par compteur |
+
+---
+
+## Pourquoi le plugin est aussi prudent : le quota est partagé
+
+C'est la contrainte structurante de ce plugin, et elle mérite d'être comprise.
+
+Les quotas Enedis (5 requêtes/seconde, 10 000 requêtes/heure) ne sont **pas par utilisateur**.
+Ils sont **globaux et partagés** entre tous les clients de Conso API : ce plugin, l'intégration
+Home Assistant, la CLI `linky`, et tous les autres. Le risque n'est donc pas qu'un utilisateur
+abuse — un compteur, c'est 2 requêtes par jour — mais que **l'ensemble du parc installé se
+présente au même moment**.
+
+Quatre mécanismes répondent à ce problème.
+
+### 1. Un horaire tiré au hasard, jamais rond
+
+Chaque installation tire son propre instant d'appel dans la fenêtre du matin. Deux
+installations n'appellent donc jamais au même moment par construction, et le service n'encaisse
+pas de pointe à 8h00'00 pile.
+
+### 2. Ne jamais appeler avant que les données existent
+
+C'est le levier le plus efficace, et le moins évident. Enedis publie les données de la veille
+vers 8h. Appeler à 6h renvoie une réponse vide, ce qui déclenche un nouvel essai : **deux
+appels pour rien**. Sur un parc entier, cela représentait la moitié du trafic généré par le
+plugin.
+
+La fenêtre par défaut commence donc à **8h**, et non à 6h. Mieux : le plugin **apprend**.
+Si vos données arrivent habituellement à 9h, il relève tout seul son plancher horaire et cesse
+d'appeler avant. Ce plancher redescend dès que les données réapparaissent plus tôt, pour qu'un
+seul jour de retard ne le fige pas définitivement.
+
+### 3. Étaler les nouveaux essais, pas seulement les premiers appels
+
+Un retard de publication chez Enedis est un événement **corrélé** : il frappe tout le parc le
+même matin. Si toutes les installations retentaient dans la même demi-heure, on fabriquerait
+exactement la pointe qu'on cherche à éviter. Le rattrapage de l'après-midi est donc étalé sur
+plusieurs heures, lui aussi au hasard.
+
+### 4. Écouter le service quand il dit stop
+
+Si Conso API répond `429 Too Many Requests` ou `403`, le plugin abandonne pour la journée au
+lieu de réessayer. Et s'il renvoie un en-tête `Retry-After`, le plugin le respecte — en y
+ajoutant un décalage aléatoire, sans quoi tous les clients ayant reçu la même consigne
+reviendraient frapper à la seconde près ensemble.
+
+### La limite honnête
+
+Aucun de ces mécanismes ne supprime les collisions ponctuelles : une installation ne sait pas
+combien d'autres existent, ni quand elles appellent. Élargir la fenêtre n'y change quasiment
+rien, les collisions étant statistiques et non liées à sa largeur.
+
+Ce qui est maîtrisé, c'est le **volume total** — 2 requêtes par jour et par compteur, sans
+gaspillage — et l'**absence d'effet de horde** lors des incidents. Si le plugin devait atteindre
+plusieurs milliers d'installations, la bonne réponse ne serait plus technique côté client mais
+une coordination avec le mainteneur de Conso API.
 
 ---
 

@@ -17,7 +17,7 @@ Première version. Périmètre « consommation seule ».
 - **Actualiser maintenant** — commande action utilisable depuis un scénario, qui force un
   cycle immédiat hors planification.
 - **Récupération quotidienne respectueuse des quotas** : horaire tiré au hasard chaque jour
-  entre 06:00:00 et 09:59:59, nouvel essai différé dans la matinée puis en début
+  entre 08:00:00 et 09:59:59, nouvel essai différé dans la matinée puis en début
   d'après-midi si Enedis n'a pas encore publié les données, et plafond dur de 3 appels par
   jour et par compteur.
 - **Import de l'historique à la demande** : 1, 6, 12 ou 36 mois, en deux requêtes seulement,

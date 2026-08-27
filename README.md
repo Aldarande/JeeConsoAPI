@@ -97,7 +97,7 @@ Le plugin applique cette discipline strictement :
 - La tâche cron s'exécute toutes les 5 minutes entre 6h et 14h55, mais **n'émet une requête
   que lorsque l'état du compteur l'autorise**. Le rythme du cron n'a aucun rapport avec le
   rythme des appels.
-- Chaque jour, un **horaire d'appel est tiré au hasard entre 06:00:00 et 09:59:59** : le
+- Chaque jour, un **horaire d'appel est tiré au hasard entre 08:00:00 et 09:59:59** : le
   service n'est jamais sollicité pile à l'heure ronde.
 - Les données de la veille sont publiées par Enedis vers 8h, parfois avec 1 à 2 heures de
   retard. Si elles sont absentes, le plugin retente **une fois** dans la matinée, puis **une

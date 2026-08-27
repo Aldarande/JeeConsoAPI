@@ -168,12 +168,21 @@ function jeeconsoapi_http_get($_type, $_prm, $_token, $_start, $_end) {
         'Accept: application/json',
     );
 
-    $code = 0;
-    $body = '';
-    $err  = '';
+    $code       = 0;
+    $body       = '';
+    $err        = '';
+    $retryAfter = null;
 
     if (function_exists('curl_init')) {
         $ch = curl_init($url);
+        $retryAfter = null;
+        curl_setopt($ch, CURLOPT_HEADERFUNCTION,
+            function ($ch, $header) use (&$retryAfter) {
+                if (stripos($header, 'retry-after:') === 0) {
+                    $retryAfter = trim(substr($header, 12));
+                }
+                return strlen($header);
+            });
         curl_setopt_array($ch, array(
             CURLOPT_RETURNTRANSFER => true,
             // FAILONERROR à false : on veut LIRE le code HTTP réel (400/401/500)
@@ -209,6 +218,9 @@ function jeeconsoapi_http_get($_type, $_prm, $_token, $_start, $_end) {
                 if (preg_match('#^HTTP/\S+\s+(\d{3})#', $header, $m)) {
                     $code = (int) $m[1];
                 }
+                if (stripos($header, 'retry-after:') === 0) {
+                    $retryAfter = trim(substr($header, 12));
+                }
             }
         }
     }
@@ -216,11 +228,35 @@ function jeeconsoapi_http_get($_type, $_prm, $_token, $_start, $_end) {
     $json = ($body !== '') ? json_decode($body, true) : null;
 
     return array(
-        'code'  => $code,
-        'body'  => $body,
-        'json'  => is_array($json) ? $json : null,
-        'error' => $err,
+        'code'        => $code,
+        'body'        => $body,
+        'json'        => is_array($json) ? $json : null,
+        'error'       => $err,
+        'retry_after' => isset($retryAfter) ? $retryAfter : null,
     );
+}
+
+/* ===================================================================
+   Helper — interprète un en-tête Retry-After
+
+   Le service peut répondre soit un nombre de secondes, soit une date HTTP.
+   C'est sa manière explicite de dire « rappelle-moi à ce moment-là » :
+   l'ignorer reviendrait à retomber dessus au pire moment, tout le parc
+   installé en même temps.
+
+   Retourne un timestamp, ou null si l'en-tête est absent ou illisible.
+   Borné à 24 h pour qu'une valeur aberrante ne gèle pas l'équipement.
+=================================================================== */
+function jeeconsoapi_retry_after_ts($_header) {
+    if ($_header === null || trim((string) $_header) === '') {
+        return null;
+    }
+    $raw = trim((string) $_header);
+    $ts  = ctype_digit($raw) ? (time() + (int) $raw) : strtotime($raw);
+    if ($ts === false || $ts === null || $ts <= time()) {
+        return null;
+    }
+    return min($ts, time() + 86400);
 }
 
 /* ===================================================================
@@ -443,13 +479,52 @@ class jeeconsoapi extends eqLogic {
        Tirage du créneau matinal — jamais pile à l'heure ronde
     --------------------------------------------------------------- */
     public function drawMorningSlot() {
-        $start = jeeconsoapi_cfg('morning_start', 6, 0, 23);
+        $start = jeeconsoapi_cfg('morning_start', 8, 0, 23);
         $end   = jeeconsoapi_cfg('morning_end', 10, 1, 23);
-        if ($end <= $start) {
-            $end = $start + 1;
+
+        /* Plancher appris — appeler avant qu'Enedis n'ait publié les données
+           est une requête garantie perdue, doublée d'un nouvel essai : deux
+           appels pour rien. Multiplié par le parc installé, c'est la première
+           source de charge inutile sur un service mutualisé.
+           On mémorise donc, par PRM, l'heure à partir de laquelle les données
+           sont réellement apparues, et on ne tire jamais en dessous. */
+        $floor = (int) $this->getConfiguration('state_slot_floor', 0);
+        if ($floor > $start) {
+            $start = $floor;
         }
+        if ($start >= $end) {
+            $start = max(0, $end - 1);
+        }
+
         $span = ($end - $start) * 3600;
         return mktime($start, 0, 0) + mt_rand(0, max(1, $span) - 1);
+    }
+
+    /* ---------------------------------------------------------------
+       Apprentissage du plancher horaire
+
+       $_dataPresent = false : à cette heure-ci les données n'étaient pas
+       encore là → ne plus tirer avant l'heure suivante.
+       $_dataPresent = true  : elles y étaient → le plancher peut redescendre,
+       sinon une seule journée de retard d'Enedis le figerait pour toujours.
+    --------------------------------------------------------------- */
+    public function learnSlotFloor($_dataPresent) {
+        $hour  = (int) date('G');
+        $end   = jeeconsoapi_cfg('morning_end', 10, 1, 23);
+        $floor = (int) $this->getConfiguration('state_slot_floor', 0);
+
+        $new = $_dataPresent ? min($floor, $hour) : max($floor, $hour + 1);
+        $new = max(0, min($end - 1, $new));
+
+        if ($new !== $floor) {
+            $this->setConfiguration('state_slot_floor', $new);
+            // Persistance immédiate : ne pas dépendre d'un saveState() ultérieur,
+            // qui n'existe pas sur tous les chemins d'appel.
+            $this->saveState();
+            jeeconsoapi_log('info', $this->getName() . '#' . $this->getId(),
+                'Plancher horaire ajusté à ' . $new . 'h '
+                . ($_dataPresent ? '(données présentes)' : '(données absentes)'), __FILE__, __LINE__);
+        }
     }
 
     /* ---------------------------------------------------------------
@@ -482,8 +557,11 @@ class jeeconsoapi extends eqLogic {
 
         if (count($data['points']) === 0) {
             // Données J-1 pas encore publiées par Enedis : c'est un cas NORMAL le matin.
+            $this->learnSlotFloor(false);
             return $this->rescheduleAfterEmpty($_ctx);
         }
+
+        $this->learnSlotFloor(true);
 
         $last  = end($data['points']);
         $kwh   = jeeconsoapi_to_kwh($last['value'], $data['unit']);
@@ -585,7 +663,22 @@ class jeeconsoapi extends eqLogic {
                      : __('Accès refusé (403). Aucun nouvel essai avant demain.', __FILE__);
                 jeeconsoapi_log('warning', $_ctx, $msg . $hint, __FILE__, __LINE__);
                 $this->setConfiguration('state_last_error', 'HTTP ' . $code);
-                $this->setConfiguration('state_next_ts', strtotime('tomorrow') + 6 * 3600);
+
+                /* Si le service indique lui-même quand revenir, on le suit :
+                   c'est le seul signal fiable de saturation réelle, et le
+                   respecter est ce qui évite que tout le parc revienne
+                   frapper au même moment. Sinon, abandon jusqu'à demain. */
+                $ra = jeeconsoapi_retry_after_ts($_res['retry_after']);
+                if ($ra !== null) {
+                    // Jitter : sans lui, tous les clients ayant reçu le même
+                    // Retry-After reviendraient à la seconde près ensemble.
+                    $ra += mt_rand(0, 1800);
+                    jeeconsoapi_log('info', $_ctx,
+                        'Retry-After respecté : nouvel essai le ' . date('Y-m-d H:i', $ra),
+                        __FILE__, __LINE__);
+                }
+                $this->setConfiguration('state_next_ts',
+                    ($ra !== null) ? $ra : strtotime('tomorrow') + 6 * 3600);
                 $this->saveState();
                 return array('status' => 'rate_limited', 'code' => $code, 'message' => $msg);
 
@@ -616,8 +709,13 @@ class jeeconsoapi extends eqLogic {
             $next   = time() + 45 * 60 + mt_rand(0, 900);   // ~45 à 60 min
             $reason = __('nouvel essai dans la matinée', __FILE__);
         } elseif ($hour < $afternoon) {
-            $next   = mktime($afternoon, 0, 0) + mt_rand(0, 1800); // début d'après-midi
-            $reason = __("nouvel essai en début d'après-midi", __FILE__);
+            /* Étalement large et non 30 minutes : un retard de publication chez
+               Enedis est un événement CORRÉLÉ — il frappe tout le parc installé
+               le même matin. Si tout le monde retente dans la même demi-heure,
+               on fabrique exactement la pointe qu'on cherche à éviter. */
+            $spread = jeeconsoapi_cfg('afternoon_spread', 3, 1, 8) * 3600;
+            $next   = mktime($afternoon, 0, 0) + mt_rand(0, $spread - 1);
+            $reason = __("nouvel essai dans l'après-midi", __FILE__);
         } else {
             $next   = strtotime('tomorrow') + 6 * 3600;
             $reason = __("toujours indisponible, abandon jusqu'à demain", __FILE__);

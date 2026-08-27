@@ -7,6 +7,51 @@ respecte le [versionnage sémantique](https://semver.org/lang/fr/).
 
 ---
 
+## [1.1.0] — 2026-08-27
+
+Réduction de l'empreinte du plugin sur Conso API. Les quotas Enedis (5 req/s, 10 000 req/h)
+sont **partagés entre tous les clients du service** : le risque n'est pas qu'un utilisateur
+abuse, mais que l'ensemble du parc installé se présente au même moment.
+
+### Modifié
+
+- **La fenêtre d'appel par défaut passe de 06:00–10:00 à 08:00–10:00.** Enedis publie les
+  données de la veille vers 8h : appeler avant renvoyait une réponse vide puis déclenchait un
+  nouvel essai, soit **deux requêtes pour rien**. Mesuré en simulation, cela représentait
+  **la moitié du trafic** généré par le plugin, et alimentait en prime une pointe de
+  rattrapage l'après-midi. La fenêtre reste dans la plage 6h–10h recommandée par le service.
+- **Le rattrapage de l'après-midi est étalé sur 3 heures au lieu de 30 minutes** (réglable de
+  1 à 8 h). Un retard de publication chez Enedis est un événement *corrélé* : il frappe tout
+  le parc le même matin. Une fenêtre de rattrapage étroite fabriquait exactement la pointe
+  que le reste du dispositif cherche à éviter.
+
+### Ajouté
+
+- **Plancher horaire auto-appris, par compteur.** Le plugin mémorise l'heure à partir de
+  laquelle les données sont réellement apparues et ne tire plus jamais en dessous. Le plancher
+  **redescend** dès que les données réapparaissent plus tôt, pour qu'un seul jour de retard ne
+  le fige pas définitivement.
+- **L'en-tête `Retry-After` est désormais respecté** sur `429` et `403`, en secondes comme en
+  date HTTP, borné à 24 h pour qu'une valeur aberrante ne gèle pas l'équipement. Un décalage
+  aléatoire y est ajouté : sans lui, tous les clients ayant reçu la même consigne
+  reviendraient frapper à la seconde près ensemble.
+- Une section de documentation expliquant la stratégie complète, **y compris sa limite** : les
+  collisions ponctuelles ne sont pas supprimables côté client, une installation ignorant
+  combien d'autres existent. Ce qui est maîtrisé, c'est le volume total et l'absence d'effet
+  de horde lors des incidents.
+
+### Corrigé
+
+- `learnSlotFloor()` modifiait la configuration sans la persister : le plancher appris ne
+  survivait que par l'effet de bord d'un `saveState()` ultérieur, absent de certains chemins.
+
+### Notes
+
+- Auto-test porté à **87 vérifications**, dont la couverture de l'étalement du tirage, de
+  l'apprentissage du plancher dans les deux sens, et du parsing de `Retry-After`.
+
+---
+
 ## [1.0.1] — 2026-08-27
 
 Correctifs issus de la validation du plugin, avant toute mise en production.
@@ -75,7 +120,7 @@ Première version publiée. Périmètre « consommation seule ».
 - **Commande action « Actualiser maintenant »** — force un cycle immédiat, utilisable depuis
   un scénario. Journalise explicitement qu'elle consomme le quota du jour.
 - **Cron quotidien respectueux des quotas** — un horaire d'appel tiré au hasard chaque jour
-  entre 06:00:00 et 09:59:59, jamais pile à l'heure ronde ; nouvel essai différé dans la
+  entre 08:00:00 et 09:59:59, jamais pile à l'heure ronde ; nouvel essai différé dans la
   matinée puis en début d'après-midi si Enedis n'a pas encore publié les données de la
   veille ; plafond dur de 3 appels par jour et par compteur.
 - **Import de l'historique à la demande** — bouton dédié, profondeur au choix (1, 6, 12 ou

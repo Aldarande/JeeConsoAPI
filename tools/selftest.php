@@ -131,17 +131,59 @@ $bad->setConfiguration('prm', '123');
 try { $bad->save(); check('PRM à 3 chiffres rejeté', false, 'aucune exception levée'); }
 catch (Exception $e) { check('PRM à 3 chiffres rejeté', true); }
 
-echo "\n=== 8. Créneau matinal dans la fenêtre 6h-10h ===\n";
+echo "\n=== 8. Creneau matinal (defaut 8h-10h) ===\n";
 $fresh = jeeconsoapi::byId($id);
-$outOfRange = 0; $roundHours = 0;
-for ($i = 0; $i < 300; $i++) {
+$fresh->setConfiguration('state_slot_floor', 0);
+$fresh->saveState();
+$fresh = jeeconsoapi::byId($id);
+$outOfRange = 0; $roundHours = 0; $buckets = array();
+for ($i = 0; $i < 600; $i++) {
     $slot = $fresh->drawMorningSlot();
     $h = (int) date('G', $slot);
-    if ($h < 6 || $h >= 10) { $outOfRange++; }
+    if ($h < 8 || $h >= 10) { $outOfRange++; }
     if ((int) date('i', $slot) === 0 && (int) date('s', $slot) === 0) { $roundHours++; }
+    $buckets[$h] = isset($buckets[$h]) ? $buckets[$h] + 1 : 1;
 }
-check('300 tirages tous entre 6h et 9h59', $outOfRange === 0, "hors plage : $outOfRange");
-check('quasi jamais pile à l\'heure ronde', $roundHours <= 1, "pile à l'heure : $roundHours");
+check('600 tirages tous entre 8h et 9h59', $outOfRange === 0, "hors plage : $outOfRange");
+check('quasi jamais pile a heure ronde', $roundHours <= 2, "pile a heure : $roundHours");
+/* Un etalement qui s effondrerait sur une seule heure recreerait la pointe
+   que ce mecanisme cherche precisement a eviter. */
+check('les deux heures de la fenetre sont utilisees', count($buckets) === 2,
+      'heures tirees : ' . implode(',', array_keys($buckets)));
+
+echo "\n=== 8b. Plancher horaire appris ===\n";
+$lf = jeeconsoapi::byId($id);
+$lf->setConfiguration('state_slot_floor', 0);
+$lf->saveState();
+/* Donnees absentes -> le plancher monte, pour ne plus gaspiller d appel
+   avant publication. */
+jeeconsoapi::byId($id)->learnSlotFloor(false);
+$after = (int) jeeconsoapi::byId($id)->getConfiguration('state_slot_floor', 0);
+check('plancher releve apres une reponse vide', $after > 0, "plancher = $after");
+check('plancher borne sous la fin de fenetre', $after <= 9, "plancher = $after");
+/* ...et il doit pouvoir redescendre, sinon un seul jour de retard d Enedis
+   le figerait definitivement. */
+$hi = jeeconsoapi::byId($id);
+$hi->setConfiguration('state_slot_floor', 9);
+$hi->saveState();
+jeeconsoapi::byId($id)->learnSlotFloor(true);
+check('plancher redescend apres une reponse pleine',
+      (int) jeeconsoapi::byId($id)->getConfiguration('state_slot_floor', 99) < 9,
+      'plancher = ' . jeeconsoapi::byId($id)->getConfiguration('state_slot_floor'));
+$rst = jeeconsoapi::byId($id);
+$rst->setConfiguration('state_slot_floor', 0);
+$rst->saveState();
+
+echo "\n=== 8c. Retry-After ===\n";
+check('secondes interpretees', jeeconsoapi_retry_after_ts('120') > time() + 100);
+check('date HTTP interpretee',
+      jeeconsoapi_retry_after_ts(gmdate('D, d M Y H:i:s', time() + 600) . ' GMT') > time() + 500);
+check('en-tete absent -> null', jeeconsoapi_retry_after_ts(null) === null);
+check('valeur illisible -> null', jeeconsoapi_retry_after_ts('bientot') === null);
+check('valeur passee -> null', jeeconsoapi_retry_after_ts('0') === null);
+/* Une valeur aberrante ne doit pas geler l equipement indefiniment. */
+check('valeur aberrante bornee a 24h',
+      jeeconsoapi_retry_after_ts('999999999') <= time() + 86400);
 
 echo "\n=== 9. Le cycle ne part pas si les données du jour sont déjà là ===\n";
 $fresh->setConfiguration('prm', '12345678901234');
